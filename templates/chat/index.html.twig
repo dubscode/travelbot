@@ -1,314 +1,96 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}TravelBot - AI Travel Assistant{% endblock %}
+{% block title %}Travel Chat - AI Assistant{% endblock %}
 
-{% block stylesheets %}
-{{ parent() }}
-<style>
-    .chat-container {
-        height: calc(100vh - 100px);
-        display: flex;
-        flex-direction: column;
-        max-width: 800px;
-        margin: 0 auto;
-        background: white;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-    
-    .chat-header {
-        padding: 20px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border-radius: 10px 10px 0 0;
-        text-align: center;
-    }
-    
-    .chat-messages {
-        flex: 1;
-        overflow-y: auto;
-        padding: 20px;
-        background: #f8f9fa;
-    }
-    
-    .message {
-        margin-bottom: 15px;
-        display: flex;
-        align-items: flex-start;
-    }
-    
-    .message.user {
-        justify-content: flex-end;
-    }
-    
-    .message.assistant {
-        justify-content: flex-start;
-    }
-    
-    .message-bubble {
-        max-width: 70%;
-        padding: 12px 16px;
-        border-radius: 18px;
-        word-wrap: break-word;
-        white-space: pre-wrap;
-    }
-    
-    .message.user .message-bubble {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        margin-left: 10px;
-    }
-    
-    .message.assistant .message-bubble {
-        background: white;
-        color: #333;
-        border: 1px solid #e9ecef;
-        margin-right: 10px;
-    }
-    
-    .message-avatar {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: bold;
-        color: white;
-        flex-shrink: 0;
-    }
-    
-    .message.user .message-avatar {
-        background: #28a745;
-        order: 2;
-    }
-    
-    .message.assistant .message-avatar {
-        background: #007bff;
-        order: 1;
-    }
-    
-    .chat-input {
-        padding: 20px;
-        background: white;
-        border-top: 1px solid #e9ecef;
-        border-radius: 0 0 10px 10px;
-    }
-    
-    .input-group {
-        display: flex;
-        gap: 10px;
-    }
-    
-    .form-control {
-        flex: 1;
-        padding: 12px 16px;
-        border: 1px solid #ddd;
-        border-radius: 25px;
-        font-size: 16px;
-        outline: none;
-    }
-    
-    .form-control:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.25);
-    }
-    
-    .btn {
-        padding: 12px 24px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        border-radius: 25px;
-        cursor: pointer;
-        font-weight: 600;
-        transition: transform 0.2s;
-    }
-    
-    .btn:hover {
-        transform: translateY(-1px);
-    }
-    
-    .btn:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-        transform: none;
-    }
-    
-    .welcome-message {
-        text-align: center;
-        color: #6c757d;
-        font-style: italic;
-        margin: 40px 0;
-    }
-    
-    .user-info {
-        font-size: 14px;
-        opacity: 0.8;
-    }
-    
-    .typing-indicator {
-        display: none;
-        align-items: center;
-        gap: 5px;
-        color: #6c757d;
-        font-style: italic;
-        margin: 10px 0;
-    }
-    
-    .typing-dots {
-        display: flex;
-        gap: 2px;
-    }
-    
-    .typing-dot {
-        width: 6px;
-        height: 6px;
-        background: #6c757d;
-        border-radius: 50%;
-        animation: typing 1.4s infinite;
-    }
-    
-    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-    
-    @keyframes typing {
-        0%, 60%, 100% { transform: translateY(0); }
-        30% { transform: translateY(-10px); }
-    }
-    
-    /* Ensure turbo-frames display properly */
-    turbo-frame {
-        display: block;
-    }
-</style>
+{% block header %}
+    {# Use custom header for chat page #}
+    <header class="hero">
+        <div class="hero__inner">
+            <div class="hero__title">🌍 TravelBot AI Assistant</div>
+            <p class="hero__subtitle">Welcome back, {{ user.name }}! Let's plan your next adventure.</p>
+        </div>
+    </header>
 {% endblock %}
 
 {% block body %}
-<div class="container-fluid">
-    <div class="chat-container">
-        <div class="chat-header">
-            <h2>🌍 TravelBot AI Assistant</h2>
-            <div class="user-info">
-                Welcome back, {{ user.name }}! Let's plan your next adventure.
-            </div>
-        </div>
-        
-        <div class="chat-messages">
-            <turbo-frame id="messages-container">
-            {% if messages|length == 0 %}
-                <div class="welcome-message">
-                    <h4>👋 Hello {{ user.name }}!</h4>
-                    <p>I'm your AI travel advisor. I can help you discover amazing destinations, plan trips, and provide personalized travel recommendations based on your preferences.</p>
-                    <p><strong>Your current preferences:</strong></p>
-                    <ul style="text-align: left; display: inline-block;">
-                        {% if user.budget %}
-                            <li>Budget: ${{ user.budget }}/day</li>
-                        {% endif %}
-                        {% if user.interests %}
-                            <li>Interests: {{ user.interests|join(', ') }}</li>
-                        {% endif %}
-                        {% if user.climatePreferences %}
-                            <li>Climate: {{ user.climatePreferences|join(', ') }}</li>
-                        {% endif %}
-                    </ul>
-                    <p>What kind of trip are you planning? 🚀</p>
+<main class="card" data-controller="chat">
+    <section id="messages" class="chat" data-chat-target="messages">
+        <turbo-frame id="messages-container">
+        {% if messages|length == 0 %}
+            <div class="welcome">
+                <div class="welcome__content">
+                    <h3>👋 Hello {{ user.name }}!</h3>
+                    <p>I'm your AI travel advisor. I can help you discover amazing destinations, plan trips, and provide personalized travel recommendations.</p>
+                    
+                    {% if user.budget or user.interests or user.climatePreferences %}
+                    <div class="preferences">
+                        <h4>Your Preferences:</h4>
+                        <ul>
+                            {% if user.budget %}
+                                <li>Budget: ${{ user.budget }}/day</li>
+                            {% endif %}
+                            {% if user.interests %}
+                                <li>Interests: {{ user.interests|join(', ') }}</li>
+                            {% endif %}
+                            {% if user.climatePreferences %}
+                                <li>Climate: {{ user.climatePreferences|join(', ') }}</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    
+                    <p>What kind of trip are you planning?</p>
                 </div>
-            {% else %}
-                {% include 'chat/_messages.html.twig' with {'messages': messages} %}
-            {% endif %}
-            </turbo-frame>
-        </div>
-        
-        <div class="typing-indicator" id="typing-indicator">
-            <span>TravelBot is thinking</span>
-            <div class="typing-dots">
-                <div class="typing-dot"></div>
-                <div class="typing-dot"></div>
-                <div class="typing-dot"></div>
             </div>
-        </div>
-        
-        <div class="chat-input">
-            <form method="post" 
-                  action="{{ path('app_chat_send') }}" 
-                  id="chat-form"
-                  data-turbo-frame="messages-container">
-                <div class="input-group">
-                    <input type="text" 
-                           name="message" 
-                           class="form-control" 
-                           placeholder="Ask me about destinations, travel tips, or plan your trip..."
-                           autocomplete="off"
-                           required
-                           id="message-input">
-                    <button type="submit" class="btn" id="send-btn">
-                        Send 📨
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+        {% else %}
+            {% for message in messages %}
+                {% if message.role == 'user' %}
+                    <article class="msg msg--user">
+                        <div class="msg__bubble">
+                            <div class="msg__text">{{ message.content|nl2br }}</div>
+                        </div>
+                        <div class="msg__avatar">{{ user.name|first|upper }}</div>
+                    </article>
+                {% else %}
+                    <article class="msg msg--bot">
+                        <div class="msg__avatar">🤖</div>
+                        <div class="msg__bubble">
+                            <h4 class="msg__title">TravelBot</h4>
+                            <div class="msg__text">{{ message.content|nl2br }}</div>
+                            {% if message.modelUsed %}
+                                <div class="msg__meta">
+                                    {% if 'haiku' in message.modelUsed|lower %}
+                                        ⚡ Fast response
+                                    {% else %}
+                                        🧠 Detailed response
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </article>
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+        </turbo-frame>
+    </section>
 
-
-<script>
-// Auto-scroll to bottom of messages
-function scrollToBottom() {
-    const container = document.querySelector('.chat-messages');
-    container.scrollTop = container.scrollHeight;
-}
-
-// Show/hide typing indicator
-function showTyping() {
-    document.getElementById('typing-indicator').style.display = 'flex';
-    scrollToBottom();
-}
-
-function hideTyping() {
-    document.getElementById('typing-indicator').style.display = 'none';
-}
-
-// Handle form submission
-document.getElementById('chat-form').addEventListener('submit', function(e) {
-    const input = document.getElementById('message-input');
-    const btn = document.getElementById('send-btn');
-    
-    if (!input.value.trim()) {
-        e.preventDefault();
-        return;
-    }
-    
-    // Disable input and button
-    btn.disabled = true;
-    btn.textContent = 'Sending...';
-    
-    // Clear input
-    setTimeout(() => input.value = '', 100);
-});
-
-// Reset form after Turbo update (only if button is still disabled)
-document.addEventListener('turbo:frame-load', function() {
-    const btn = document.getElementById('send-btn');
-    if (btn && btn.disabled) {
-        btn.disabled = false;
-        btn.textContent = 'Send 📨';
-    }
-    scrollToBottom();
-});
-
-// Focus input on load
-window.addEventListener('load', function() {
-    document.getElementById('message-input').focus();
-    scrollToBottom();
-});
-
-// Handle Enter key
-document.getElementById('message-input').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        document.getElementById('chat-form').requestSubmit();
-    }
-});
-</script>
+    <form class="composer" 
+          action="{{ path('app_chat_send') }}" 
+          method="post" 
+          data-action="submit->chat#send"
+          data-turbo-frame="messages-container">
+        <input class="input" 
+               name="message" 
+               placeholder="Ask about destinations, travel tips, or plan your trip..." 
+               autocomplete="off" 
+               required
+               aria-label="Chat message"
+               data-chat-target="input" />
+        <button class="btn btn--primary" 
+                type="submit" 
+                data-chat-target="sendBtn">
+            Send ✈️
+        </button>
+    </form>
+</main>
 {% endblock %}
