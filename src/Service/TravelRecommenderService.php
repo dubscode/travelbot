@@ -5,12 +5,14 @@ namespace App\Service;
 use App\Entity\Destination;
 use App\Entity\User;
 use App\Repository\DestinationRepository;
+use Psr\Log\LoggerInterface;
 
 class TravelRecommenderService
 {
     public function __construct(
         private ClaudeService $claudeService,
-        private DestinationRepository $destinationRepository
+        private DestinationRepository $destinationRepository,
+        private LoggerInterface $logger
     ) {}
 
     public function generateRecommendation(
@@ -40,7 +42,9 @@ class TravelRecommenderService
         // Build context-aware messages
         $messages = $this->buildMessages($userMessage, $destinations, $user, $previousMessages);
         
-        yield from $this->claudeService->streamResponse($messages, $preferFastResponse);
+        foreach ($this->claudeService->streamResponse($messages, $preferFastResponse) as $chunk) {
+            yield $chunk;
+        }
     }
 
     private function buildMessages(
@@ -181,19 +185,23 @@ class TravelRecommenderService
 
     public function shouldUseFastModel(string $userMessage): bool
     {
-        // Use fast model (Haiku) for simple queries, Sonnet for complex travel planning
+        // Use Sonnet by default, but use Haiku for simple/quick responses
         $simplePatterns = [
             '/^(hi|hello|hey|good morning|good afternoon)/i',
             '/^(yes|no|ok|sure|thanks|thank you)/i',
             '/^\w{1,20}$/', // Very short messages
+            '/^(what|how much|when|where) /i', // Simple questions
+            '/quick/i',
+            '/simple/i',
+            '/fast/i',
         ];
 
         foreach ($simplePatterns as $pattern) {
             if (preg_match($pattern, trim($userMessage))) {
-                return true;
+                return true; // Use Haiku for simple queries
             }
         }
 
-        return false;
+        return false; // Use Sonnet by default for detailed travel planning
     }
 }

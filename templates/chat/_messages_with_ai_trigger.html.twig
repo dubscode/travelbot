@@ -24,7 +24,7 @@
 {% endfor %}
 
 <script>
-// Immediately show typing indicator and fetch AI response
+// Immediately show typing indicator and start streaming AI response
 setTimeout(() => {
     const typingIndicator = document.getElementById('typing-indicator');
     if (typingIndicator) {
@@ -37,57 +37,127 @@ setTimeout(() => {
         container.scrollTop = container.scrollHeight;
     }
 
-    // Trigger AI response fetch
-    fetch('{{ path('app_chat_ai_response', {'messageId': userMessageId}) }}', {
-        headers: {
-            'Accept': 'text/html',
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.text();
-    })
-    .then(html => {
-        // Replace the turbo frame with the updated content
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const newFrame = doc.querySelector('turbo-frame[id="messages-container"]');
-        if (newFrame) {
-            const currentFrame = document.querySelector('turbo-frame[id="messages-container"]');
-            if (currentFrame) {
-                currentFrame.innerHTML = newFrame.innerHTML;
-            }
+    // Create AI message bubble with immediate typing animation
+    const currentFrame = document.querySelector('turbo-frame[id="messages-container"]');
+    if (currentFrame) {
+        const aiMessageHtml = `
+            <div class="message assistant" id="streaming-message">
+                <div class="message-avatar">🤖</div>
+                <div class="message-bubble" id="streaming-content">
+                    <span class="typing-dots-inline">
+                        <span class="dot">●</span>
+                        <span class="dot">●</span>
+                        <span class="dot">●</span>
+                    </span>
+                    <span id="cursor" style="display: none;">▋</span>
+                </div>
+            </div>
+        `;
+        currentFrame.innerHTML += aiMessageHtml;
+        
+        // Add CSS for inline typing animation
+        if (!document.getElementById('typing-animation-style')) {
+            const style = document.createElement('style');
+            style.id = 'typing-animation-style';
+            style.textContent = `
+                .typing-dots-inline {
+                    display: inline-block;
+                    color: #666;
+                }
+                .typing-dots-inline .dot {
+                    animation: typing-pulse 1.4s infinite;
+                    opacity: 0.4;
+                }
+                .typing-dots-inline .dot:nth-child(1) { animation-delay: 0s; }
+                .typing-dots-inline .dot:nth-child(2) { animation-delay: 0.2s; }
+                .typing-dots-inline .dot:nth-child(3) { animation-delay: 0.4s; }
+                @keyframes typing-pulse {
+                    0%, 60%, 100% { opacity: 0.4; }
+                    30% { opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
         }
         
-        // Hide typing indicator and re-enable form
-        const typingIndicator = document.getElementById('typing-indicator');
-        if (typingIndicator) {
-            typingIndicator.style.display = 'none';
-        }
-        
-        const btn = document.getElementById('send-btn');
-        if (btn) {
-            btn.disabled = false;
-            btn.textContent = 'Send 📨';
-        }
-        
-        // Scroll to bottom
-        const container = document.querySelector('.chat-messages');
+        // Scroll to show new message
         if (container) {
             container.scrollTop = container.scrollHeight;
         }
-    })
-    .catch(error => {
-        console.error('Error fetching AI response:', error);
-        
-        // Hide typing indicator and re-enable form
-        const typingIndicator = document.getElementById('typing-indicator');
+    }
+
+    // Set up EventSource for streaming
+    const eventSource = new EventSource('{{ path('app_chat_stream', {'messageId': userMessageId}) }}');
+    
+    eventSource.addEventListener('ready', function(event) {
+        // Keep showing typing animation until first token
+    });
+    
+    eventSource.addEventListener('start', function(event) {
+        // Hide typing indicator - keep inline dots for now
         if (typingIndicator) {
             typingIndicator.style.display = 'none';
         }
+    });
+    
+    eventSource.addEventListener('token', function(event) {
+        const data = JSON.parse(event.data);
+        const contentElement = document.getElementById('streaming-content');
+        let cursor = document.getElementById('cursor');
+        const typingDots = contentElement.querySelector('.typing-dots-inline');
+        
+        if (contentElement) {
+            // On first token, switch from typing animation to streaming cursor
+            if (typingDots) {
+                typingDots.remove();
+                if (cursor) cursor.style.display = 'inline';
+            }
+            
+            // Remove cursor temporarily to add token, but keep reference
+            let cursorWasVisible = false;
+            if (cursor && cursor.parentNode) {
+                cursorWasVisible = true;
+                cursor.remove();
+            }
+            
+            // Create text node and append to existing content
+            const tokenSpan = document.createElement('span');
+            tokenSpan.textContent = data.text;
+            contentElement.appendChild(tokenSpan);
+            
+            // Re-create and add cursor back if it was visible
+            if (cursorWasVisible) {
+                cursor = document.createElement('span');
+                cursor.id = 'cursor';
+                cursor.textContent = '▋';
+                cursor.style.display = 'inline';
+                contentElement.appendChild(cursor);
+            }
+            
+            // Scroll to bottom
+            if (container) {
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+    });
+    
+    eventSource.addEventListener('complete', function(event) {
+        // Remove cursor
+        const cursor = document.getElementById('cursor');
+        if (cursor) {
+            cursor.remove();
+        }
+        
+        // Add model indicator
+        const contentElement = document.getElementById('streaming-content');
+        if (contentElement) {
+            const modelInfo = document.createElement('div');
+            modelInfo.style.cssText = 'font-size: 12px; opacity: 0.7; margin-top: 8px;';
+            modelInfo.innerHTML = '🧠 Detailed response';
+            contentElement.appendChild(modelInfo);
+        }
+        
+        // Close connection and re-enable form
+        eventSource.close();
         
         const btn = document.getElementById('send-btn');
         if (btn) {
@@ -95,8 +165,26 @@ setTimeout(() => {
             btn.textContent = 'Send 📨';
         }
         
+        // Final scroll
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+        }
+    });
+    
+    eventSource.addEventListener('error', function(event) {
+        
+        // Remove streaming elements
+        const streamingMessage = document.getElementById('streaming-message');
+        if (streamingMessage) {
+            streamingMessage.remove();
+        }
+        
+        // Hide typing indicator
+        if (typingIndicator) {
+            typingIndicator.style.display = 'none';
+        }
+        
         // Show error message
-        const currentFrame = document.querySelector('turbo-frame[id="messages-container"]');
         if (currentFrame) {
             const errorHtml = `
                 <div class="message assistant">
@@ -108,7 +196,71 @@ setTimeout(() => {
             `;
             currentFrame.innerHTML += errorHtml;
         }
+        
+        // Close connection and re-enable form
+        eventSource.close();
+        
+        const btn = document.getElementById('send-btn');
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Send 📨';
+        }
     });
+    
+    eventSource.onerror = function(event) {
+        eventSource.close();
+        
+        // Fallback to non-streaming approach
+        fetch('{{ path('app_chat_ai_response', {'messageId': userMessageId}) }}', {
+            headers: {
+                'Accept': 'text/html',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.text())
+        .then(html => {
+            // Replace the entire frame with fallback response
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const newFrame = doc.querySelector('turbo-frame[id="messages-container"]');
+            if (newFrame && currentFrame) {
+                currentFrame.innerHTML = newFrame.innerHTML;
+            }
+        })
+        .catch(error => {
+            console.error('Fallback also failed:', error);
+            
+            // Show error message
+            if (currentFrame) {
+                const errorHtml = `
+                    <div class="message assistant">
+                        <div class="message-avatar">🤖</div>
+                        <div class="message-bubble">
+                            Sorry, I encountered an error processing your request. Please try again.
+                        </div>
+                    </div>
+                `;
+                currentFrame.innerHTML += errorHtml;
+            }
+        })
+        .finally(() => {
+            // Hide typing indicator and re-enable form
+            if (typingIndicator) {
+                typingIndicator.style.display = 'none';
+            }
+            
+            const btn = document.getElementById('send-btn');
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Send 📨';
+            }
+            
+            if (container) {
+                container.scrollTop = container.scrollHeight;
+            }
+        });
+    };
+    
 }, 100); // Small delay to ensure DOM is ready
 </script>
 </turbo-frame>

@@ -27,8 +27,6 @@ services:
             $sonnetModel: '%env(BEDROCK_CLAUDE_SONNET_MODEL)%'
             $haikuModel: '%env(BEDROCK_CLAUDE_HAIKU_MODEL)%'
             $logger: '@logger'
-            $bearerToken: '%env(AWS_BEARER_TOKEN_BEDROCK)%'
-            $httpClient: '@http_client'
         tags:
             - { name: monolog.logger, channel: claude }
 
@@ -36,6 +34,7 @@ services:
         arguments:
             $claudeService: '@App\Service\ClaudeService'
             $destinationRepository: '@App\Repository\DestinationRepository'
+            $logger: '@logger'
     
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

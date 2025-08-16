@@ -2,22 +2,31 @@
 
 namespace App\Service;
 
-use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Aws\BedrockRuntime\BedrockRuntimeClient;
+use Aws\Credentials\CredentialProvider;
+use Aws\Exception\AwsException;
 use Psr\Log\LoggerInterface;
 
 class ClaudeService
 {
-    private string $baseUrl;
+    private BedrockRuntimeClient $bedrockClient;
 
     public function __construct(
         private string $region,
         private string $sonnetModel,
         private string $haikuModel,
-        private LoggerInterface $logger,
-        private string $bearerToken,
-        private HttpClientInterface $httpClient
+        private LoggerInterface $logger
     ) {
-        $this->baseUrl = "https://bedrock-runtime.{$this->region}.amazonaws.com";
+        // Use SSO credential provider for proper SSO profile support
+        $profileName = getenv('AWS_PROFILE') ?: 'anny-prod';
+        
+        $credentialProvider = CredentialProvider::sso($profileName);
+        
+        $this->bedrockClient = new BedrockRuntimeClient([
+            'region' => $this->region,
+            'version' => 'latest',
+            'credentials' => $credentialProvider,
+        ]);
     }
 
     public function generateResponse(
@@ -29,26 +38,15 @@ class ClaudeService
         $modelId = $preferFastResponse ? $this->haikuModel : $this->sonnetModel;
         
         try {
-            $url = "{$this->baseUrl}/model/{$modelId}/converse";
-            
-            $payload = [
+            $result = $this->bedrockClient->converse([
+                'modelId' => $modelId,
                 'messages' => $messages,
                 'inferenceConfig' => [
                     'maxTokens' => $maxTokens,
                     'temperature' => 0.7,
                     'topP' => 0.9,
                 ],
-            ];
-
-            $response = $this->httpClient->request('POST', $url, [
-                'headers' => [
-                    'Content-Type' => 'application/json',
-                    'Authorization' => 'Bearer ' . $this->bearerToken,
-                ],
-                'json' => $payload,
             ]);
-
-            $result = $response->toArray();
             
             return [
                 'content' => $result['output']['message']['content'][0]['text'] ?? '',
@@ -57,8 +55,16 @@ class ClaudeService
                 'stopReason' => $result['stopReason'] ?? null,
             ];
 
+        } catch (AwsException $e) {
+            $this->logger->error('Bedrock API error: ' . $e->getMessage(), [
+                'model' => $modelId,
+                'messages' => $messages,
+                'awsCode' => $e->getAwsErrorCode(),
+            ]);
+            
+            throw new \RuntimeException('Failed to generate AI response: ' . $e->getMessage(), 0, $e);
         } catch (\Exception $e) {
-            $this->logger->error('Claude API error: ' . $e->getMessage(), [
+            $this->logger->error('Claude service error: ' . $e->getMessage(), [
                 'model' => $modelId,
                 'messages' => $messages,
             ]);
@@ -74,24 +80,63 @@ class ClaudeService
     ): \Generator {
         $modelId = $preferFastResponse ? $this->haikuModel : $this->sonnetModel;
         
-        // For now, fall back to non-streaming since streaming with HTTP client is more complex
-        // TODO: Implement proper streaming with Server-Sent Events
         try {
-            $response = $this->generateResponse($messages, $preferFastResponse, $maxTokens);
-            
-            // Simulate streaming by yielding the full response
-            yield [
-                'type' => 'content',
-                'text' => $response['content'],
-                'model' => $response['model']
-            ];
-            
-            yield [
-                'type' => 'stop',
-                'stopReason' => $response['stopReason'] ?? 'end_turn',
-                'model' => $response['model']
-            ];
+            $result = $this->bedrockClient->converseStream([
+                'modelId' => $modelId,
+                'messages' => $messages,
+                'inferenceConfig' => [
+                    'maxTokens' => $maxTokens,
+                    'temperature' => 0.7,
+                    'topP' => 0.9,
+                ],
+            ]);
 
+            // Process the streaming response
+            foreach ($result['stream'] as $event) {
+                if (isset($event['contentBlockDelta'])) {
+                    // Content token
+                    $delta = $event['contentBlockDelta'];
+                    if (isset($delta['delta']['text'])) {
+                        $tokenText = $delta['delta']['text'];
+                        
+                        yield [
+                            'type' => 'content',
+                            'text' => $tokenText,
+                            'model' => $modelId
+                        ];
+                    }
+                } elseif (isset($event['messageStop'])) {
+                    // End of message
+                    $stopReason = $event['messageStop']['stopReason'] ?? 'end_turn';
+                    
+                    yield [
+                        'type' => 'stop',
+                        'stopReason' => $stopReason,
+                        'model' => $modelId
+                    ];
+                    break;
+                } elseif (isset($event['metadata'])) {
+                    // Usage statistics
+                    yield [
+                        'type' => 'metadata',
+                        'usage' => $event['metadata']['usage'] ?? null,
+                        'model' => $modelId
+                    ];
+                }
+            }
+
+        } catch (AwsException $e) {
+            $this->logger->error('Bedrock streaming error: ' . $e->getMessage(), [
+                'model' => $modelId,
+                'messages' => $messages,
+                'awsCode' => $e->getAwsErrorCode(),
+            ]);
+            
+            yield [
+                'type' => 'error',
+                'message' => 'Failed to stream AI response: ' . $e->getMessage(),
+                'model' => $modelId
+            ];
         } catch (\Exception $e) {
             $this->logger->error('Claude streaming error: ' . $e->getMessage(), [
                 'model' => $modelId,
@@ -100,7 +145,7 @@ class ClaudeService
             
             yield [
                 'type' => 'error',
-                'message' => 'Failed to generate AI response: ' . $e->getMessage(),
+                'message' => 'Failed to stream AI response: ' . $e->getMessage(),
                 'model' => $modelId
             ];
         }
