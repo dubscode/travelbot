@@ -1,17 +1,17 @@
 <turbo-frame id="messages-container">
 {% for message in messages %}
-    <div class="message {{ message.role }}">
-        <div class="message-avatar">
+    <div class="msg {% if message.role == 'user' %}msg--user{% else %}msg--bot{% endif %}">
+        <div class="msg__avatar">
             {% if message.role == 'user' %}
                 {{ user.name|first|upper }}
             {% else %}
                 🤖
             {% endif %}
         </div>
-        <div class="message-bubble">
-            {{ message.content|nl2br }}
+        <div class="msg__bubble">
+            <div class="msg__text">{{ message.content|nl2br }}</div>
             {% if message.modelUsed %}
-                <div style="font-size: 12px; opacity: 0.7; margin-top: 8px;">
+                <div class="msg__meta">
                     {% if 'haiku' in message.modelUsed|lower %}
                         ⚡ Fast response
                     {% else %}
@@ -41,9 +41,9 @@ setTimeout(() => {
     const currentFrame = document.querySelector('turbo-frame[id="messages-container"]');
     if (currentFrame) {
         const aiMessageHtml = `
-            <div class="message assistant" id="streaming-message">
-                <div class="message-avatar">🤖</div>
-                <div class="message-bubble" id="streaming-content">
+            <div class="msg msg--bot" id="streaming-message">
+                <div class="msg__avatar">🤖</div>
+                <div class="msg__bubble" id="streaming-content">
                     <span class="typing-dots-inline">
                         <span class="dot">●</span>
                         <span class="dot">●</span>
@@ -187,10 +187,10 @@ setTimeout(() => {
         // Show error message
         if (currentFrame) {
             const errorHtml = `
-                <div class="message assistant">
-                    <div class="message-avatar">🤖</div>
-                    <div class="message-bubble">
-                        Sorry, I encountered an error processing your request. Please try again.
+                <div class="msg msg--bot">
+                    <div class="msg__avatar">🤖</div>
+                    <div class="msg__bubble">
+                        <div class="msg__text">Sorry, I encountered an error processing your request. Please try again.</div>
                     </div>
                 </div>
             `;
@@ -233,10 +233,10 @@ setTimeout(() => {
             // Show error message
             if (currentFrame) {
                 const errorHtml = `
-                    <div class="message assistant">
-                        <div class="message-avatar">🤖</div>
-                        <div class="message-bubble">
-                            Sorry, I encountered an error processing your request. Please try again.
+                    <div class="msg msg--bot">
+                        <div class="msg__avatar">🤖</div>
+                        <div class="msg__bubble">
+                            <div class="msg__text">Sorry, I encountered an error processing your request. Please try again.</div>
                         </div>
                     </div>
                 `;

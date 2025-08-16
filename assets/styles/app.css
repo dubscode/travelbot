@@ -455,3 +455,32 @@ turbo-frame {
 .msg__text * {
   line-height: 1.5;
 }
+
+/* Typing indicator animation */
+.typing-dots-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.typing-dots-inline .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: typing 1.4s infinite ease-in-out;
+}
+
+.typing-dots-inline .dot:nth-child(1) { animation-delay: -0.32s; }
+.typing-dots-inline .dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes typing {
+  0%, 80%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
