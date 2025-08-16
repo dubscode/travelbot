@@ -4,14 +4,51 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "8080:80"
+      target: production-php-only
     environment:
-      - APP_ENV=dev
+      - APP_ENV=prod
+      - APP_DEBUG=0
       - APP_SECRET=bba3e9d2347f83df4f2104d76898205c
+      - DATABASE_URL=postgresql://app:password@db:5432/app
+      - MESSENGER_TRANSPORT_DSN=doctrine://default
+      - MAILER_DSN=smtp://mailer:1025
+      - AWS_REGION=us-west-2
+      - BEDROCK_CLAUDE_SONNET_MODEL=us.anthropic.claude-sonnet-4-20250514-v1:0
+      - BEDROCK_CLAUDE_HAIKU_MODEL=us.anthropic.claude-3-5-haiku-20241022-v1:0
     volumes:
       - ./var:/var/www/html/var
     depends_on:
-      - mailer
+      - db
+    networks:
+      - travelbot
+
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: nginx
+    ports:
+      - "8080:80"
+    depends_on:
+      - app
+    networks:
+      - travelbot
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=app
+      - POSTGRES_USER=app
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - travelbot
 
 volumes:
+  db_data:
+
+networks:
+  travelbot:

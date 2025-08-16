@@ -28,7 +28,7 @@ print_status() {
 }
 
 print_status "Building Docker image for linux/amd64..."
-docker build --platform linux/amd64 -t $ECR_REPOSITORY:$IMAGE_TAG .
+docker build --platform linux/amd64 --no-cache --target production -t $ECR_REPOSITORY:$IMAGE_TAG .
 
 print_status "Logging in to ECR..."
 aws ecr get-login-password --profile $AWS_PROFILE --region $REGION | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com
