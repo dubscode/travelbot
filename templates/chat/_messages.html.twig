@@ -1,0 +1,23 @@
+{% for message in messages %}
+    <div class="message {{ message.role }}">
+        <div class="message-avatar">
+            {% if message.role == 'user' %}
+                {{ user.name|first|upper }}
+            {% else %}
+                🤖
+            {% endif %}
+        </div>
+        <div class="message-bubble">
+            {{ message.content|nl2br }}
+            {% if message.modelUsed %}
+                <div style="font-size: 12px; opacity: 0.7; margin-top: 8px;">
+                    {% if 'haiku' in message.modelUsed|lower %}
+                        ⚡ Fast response
+                    {% else %}
+                        🧠 Detailed response
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+{% endfor %}
