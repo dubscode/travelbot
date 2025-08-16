@@ -39,6 +39,116 @@ class ChatController extends AbstractController
     }
 
     #[Route('/send', name: 'app_chat_send', methods: ['POST'])]
+    public function sendUserMessage(Request $request): Response
+    {
+        /** @var \App\Entity\User $user */
+        $user = $this->getUser();
+        $messageContent = $request->request->get('message');
+        
+        if (empty(trim($messageContent))) {
+            return new JsonResponse(['error' => 'Message cannot be empty'], 400);
+        }
+
+        // Get or create conversation
+        $conversation = $this->getOrCreateActiveConversation($user);
+        
+        // Create and save user message immediately
+        $userMessage = new Message();
+        $userMessage->setContent($messageContent);
+        $userMessage->setRole(Message::ROLE_USER);
+        $userMessage->setConversation($conversation);
+        
+        $this->entityManager->persist($userMessage);
+        $this->entityManager->flush();
+        
+        // Refresh conversation to get updated messages collection
+        $this->entityManager->refresh($conversation);
+
+        // Return updated messages with user message immediately
+        return $this->render('chat/_messages_with_ai_trigger.html.twig', [
+            'messages' => $conversation->getMessages(),
+            'conversation' => $conversation,
+            'user' => $user,
+            'userMessageId' => $userMessage->getId(),
+        ]);
+    }
+
+    #[Route('/ai-response/{messageId}', name: 'app_chat_ai_response', methods: ['GET'])]
+    public function getAiResponse(string $messageId): Response
+    {
+        /** @var \App\Entity\User $user */
+        $user = $this->getUser();
+        
+        // Find the user message
+        $userMessage = $this->entityManager->getRepository(Message::class)->find($messageId);
+        if (!$userMessage || $userMessage->getConversation()->getUser() !== $user) {
+            throw $this->createAccessDeniedException();
+        }
+        
+        $conversation = $userMessage->getConversation();
+        
+        try {
+            // Get conversation history for AI context
+            $messageHistory = $this->buildMessageHistory($conversation);
+            
+            // Determine if we should use fast model
+            $useFastModel = $this->travelRecommender->shouldUseFastModel($userMessage->getContent());
+            
+            // Generate AI response
+            $aiResponse = $this->travelRecommender->generateRecommendation(
+                $userMessage->getContent(),
+                $user,
+                $messageHistory,
+                $useFastModel
+            );
+            
+            // Create AI message
+            $aiMessage = new Message();
+            $aiMessage->setContent($aiResponse['content']);
+            $aiMessage->setRole(Message::ROLE_ASSISTANT);
+            $aiMessage->setConversation($conversation);
+            $aiMessage->setModelUsed($aiResponse['model']);
+            
+            if (isset($aiResponse['usage']['outputTokens'])) {
+                $aiMessage->setTokenCount($aiResponse['usage']['outputTokens']);
+            }
+            
+            $this->entityManager->persist($aiMessage);
+            $this->entityManager->flush();
+            
+            // Refresh conversation to get updated messages collection
+            $this->entityManager->refresh($conversation);
+            
+            // Return updated messages for Turbo to update the UI
+            return $this->render('chat/_messages.html.twig', [
+                'messages' => $conversation->getMessages(),
+                'conversation' => $conversation,
+                'user' => $user,
+            ]);
+            
+        } catch (\Exception $e) {
+            // Create error message
+            $errorMessage = new Message();
+            $errorMessage->setContent('Sorry, I encountered an error processing your request. Please try again.');
+            $errorMessage->setRole(Message::ROLE_ASSISTANT);
+            $errorMessage->setConversation($conversation);
+            $errorMessage->setMetadata(['error' => $e->getMessage()]);
+            
+            $this->entityManager->persist($errorMessage);
+            $this->entityManager->flush();
+            
+            // Refresh conversation to get updated messages collection
+            $this->entityManager->refresh($conversation);
+            
+            return $this->render('chat/_messages.html.twig', [
+                'messages' => $conversation->getMessages(),
+                'conversation' => $conversation,
+                'user' => $user,
+            ]);
+        }
+    }
+
+    #[Route('/send-old', name: 'app_chat_send_old', methods: ['POST'])]
     public function sendMessage(Request $request): Response
     {
         /** @var \App\Entity\User $user */
@@ -90,10 +200,14 @@ class ChatController extends AbstractController
             $this->entityManager->persist($aiMessage);
             $this->entityManager->flush();
             
+            // Refresh conversation to get updated messages collection
+            $this->entityManager->refresh($conversation);
+            
             // Return updated messages for Turbo to update the UI
             return $this->render('chat/_messages.html.twig', [
                 'messages' => $conversation->getMessages(),
                 'conversation' => $conversation,
+                'user' => $user,
             ]);
             
         } catch (\Exception $e) {
@@ -107,9 +221,13 @@ class ChatController extends AbstractController
             $this->entityManager->persist($errorMessage);
             $this->entityManager->flush();
             
+            // Refresh conversation to get updated messages collection
+            $this->entityManager->refresh($conversation);
+            
             return $this->render('chat/_messages.html.twig', [
                 'messages' => $conversation->getMessages(),
                 'conversation' => $conversation,
+                'user' => $user,
             ]);
         }
     }

@@ -176,6 +176,11 @@
         0%, 60%, 100% { transform: translateY(0); }
         30% { transform: translateY(-10px); }
     }
+    
+    /* Ensure turbo-frames display properly */
+    turbo-frame {
+        display: block;
+    }
 </style>
 {% endblock %}
 
@@ -189,7 +194,8 @@
             </div>
         </div>
         
-        <div class="chat-messages" id="messages-container">
+        <div class="chat-messages">
+            <turbo-frame id="messages-container">
             {% if messages|length == 0 %}
                 <div class="welcome-message">
                     <h4>👋 Hello {{ user.name }}!</h4>
@@ -211,6 +217,7 @@
             {% else %}
                 {% include 'chat/_messages.html.twig' with {'messages': messages} %}
             {% endif %}
+            </turbo-frame>
         </div>
         
         <div class="typing-indicator" id="typing-indicator">
@@ -226,7 +233,7 @@
             <form method="post" 
                   action="{{ path('app_chat_send') }}" 
                   id="chat-form"
-                  data-turbo-frame="messages-frame">
+                  data-turbo-frame="messages-container">
                 <div class="input-group">
                     <input type="text" 
                            name="message" 
@@ -244,12 +251,11 @@
     </div>
 </div>
 
-<turbo-frame id="messages-frame" target="messages-container"></turbo-frame>
 
 <script>
 // Auto-scroll to bottom of messages
 function scrollToBottom() {
-    const container = document.getElementById('messages-container');
+    const container = document.querySelector('.chat-messages');
     container.scrollTop = container.scrollHeight;
 }
 
@@ -273,21 +279,21 @@ document.getElementById('chat-form').addEventListener('submit', function(e) {
         return;
     }
     
-    // Disable input and show typing
+    // Disable input and button
     btn.disabled = true;
     btn.textContent = 'Sending...';
-    showTyping();
     
     // Clear input
     setTimeout(() => input.value = '', 100);
 });
 
-// Reset form after Turbo update
+// Reset form after Turbo update (only if button is still disabled)
 document.addEventListener('turbo:frame-load', function() {
     const btn = document.getElementById('send-btn');
-    btn.disabled = false;
-    btn.textContent = 'Send 📨';
-    hideTyping();
+    if (btn && btn.disabled) {
+        btn.disabled = false;
+        btn.textContent = 'Send 📨';
+    }
     scrollToBottom();
 });
 
