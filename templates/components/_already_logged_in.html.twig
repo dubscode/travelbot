@@ -1,0 +1,47 @@
+{#
+    Already logged in component
+    
+    Parameters:
+    - user: the current user object
+    - show_register_option: boolean to show "sign up with different account" vs "sign in with different account" (default: false)
+#}
+
+{% set showRegisterOption = show_register_option|default(false) %}
+
+{% set card_content %}
+    <div class="flex items-start space-x-3">
+        <div class="flex-shrink-0">
+            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30">
+                <svg class="h-5 w-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                </svg>
+            </div>
+        </div>
+        <div class="flex-1 min-w-0">
+            <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                You're already signed in
+            </div>
+            <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Signed in as <span class="font-medium">{{ user.userIdentifier }}</span>. 
+                {% if showRegisterOption %}
+                    Would you like to continue to your chat or create a different account?
+                {% else %}
+                    Would you like to continue to your chat or sign in with a different account?
+                {% endif %}
+            </div>
+            <div class="mt-4 flex flex-col sm:flex-row gap-3">
+                <a href="{{ path('app_chat') }}" class="inline-flex justify-center items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-blue-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:bg-blue-500 dark:hover:bg-blue-400">
+                    Chat
+                </a>
+                <a href="{{ path('app_logout') }}" class="inline-flex justify-center items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-xs ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:ring-gray-600 dark:hover:bg-gray-700">
+                    Sign Out
+                </a>
+            </div>
+        </div>
+    </div>
+{% endset %}
+
+{% include 'components/_card.html.twig' with {
+    'content': card_content,
+    'classes': 'mb-6'
+} %}

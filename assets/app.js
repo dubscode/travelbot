@@ -7,3 +7,9 @@
 
 // any CSS you import will output into a single css file (app.css in this case)
 import './styles/app.css';
+
+// Start the Stimulus application
+import './bootstrap.js';
+
+// Import chat streaming functionality
+import './js/chat-streaming.js';

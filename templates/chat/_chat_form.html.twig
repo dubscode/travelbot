@@ -1,0 +1,18 @@
+<form class="sticky bottom-0 grid grid-cols-[1fr_auto] gap-4 pt-4 bg-gradient-to-t from-gray-50/96 dark:from-gray-900/96 to-transparent" 
+      action="{{ path('app_chat_send') }}" 
+      method="post" 
+      data-action="submit->chat#send"
+      data-turbo-frame="messages-container">
+    <input class="h-14 px-4 rounded-xl border border-gray-300/20 dark:border-gray-600/20 bg-white dark:bg-gray-800 outline-none text-base text-gray-900 dark:text-gray-100 transition-colors duration-200 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20" 
+           name="message" 
+           placeholder="Ask about destinations, travel tips, or plan your trip..." 
+           autocomplete="off" 
+           required
+           aria-label="Chat message"
+           data-chat-target="input" />
+    <button class="h-14 px-6 rounded-xl border-0 cursor-pointer font-semibold text-[15px] shadow-lg transition-all duration-200 outline-none bg-blue-600 text-white hover:bg-blue-700 active:translate-y-0.5 focus:ring-4 focus:ring-blue-500/20 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-blue-600 disabled:transform-none" 
+            type="submit" 
+            data-chat-target="sendBtn">
+        Send ✈️
+    </button>
+</form>

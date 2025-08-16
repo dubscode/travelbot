@@ -1,51 +1,104 @@
 {% extends 'base.html.twig' %}
+{% set is_auth_page = true %}
 
-{% block title %}Register{% endblock %}
+{% block title %}Create your account{% endblock %}
 
 {% block body %}
-    <div class="bg-app-surface/95 dark:bg-app-surface-dark/95 border border-primary-50/60 dark:border-app-muted-dark/20 rounded-app shadow-app dark:shadow-app-dark p-app-lg max-w-md mx-auto backdrop-blur-xl">
+    {% set form_content %}
         {% for flash_error in app.flashes('verify_email_error') %}
-            <div class="p-4 bg-danger-500/10 border border-danger-500/20 rounded-app-sm text-danger-500 mb-6" role="alert">
-                {{ flash_error }}
-            </div>
+            {% include 'components/_form_error.html.twig' with {
+                'message': flash_error,
+                'type': 'error'
+            } %}
         {% endfor %}
 
-        <h1 class="text-2xl font-bold text-center text-app-text dark:text-app-text-dark mb-6">Register</h1>
-
         {% if form_errors(registrationForm) %}
-            <div class="p-4 bg-danger-500/10 border border-danger-500/20 rounded-app-sm text-danger-500 mb-6">
-                {{ form_errors(registrationForm) }}
-            </div>
+            {% include 'components/_form_error.html.twig' with {
+                'message': form_errors(registrationForm),
+                'type': 'error'
+            } %}
         {% endif %}
 
         {{ form_start(registrationForm, {'attr': {'class': 'space-y-6'}}) }}
             <div>
-                {{ form_label(registrationForm.name, null, {'label_attr': {'class': 'block text-sm font-medium text-app-text dark:text-app-text-dark mb-2'}}) }}
-                {{ form_widget(registrationForm.name, {'attr': {'class': 'w-full h-12 px-4 rounded-app-sm border border-app-muted/20 dark:border-app-muted-dark/20 bg-app-surface dark:bg-app-surface-dark outline-none text-base text-app-text dark:text-app-text-dark transition-colors duration-200 placeholder:text-app-muted dark:placeholder:text-app-muted-dark focus:border-primary-500 focus:shadow-app-ring'}}) }}
-                {{ form_errors(registrationForm.name) }}
+                <label for="{{ registrationForm.name.vars.id }}" class="block text-sm/6 font-medium text-gray-900 dark:text-gray-100">{{ form_label(registrationForm.name).labelFormat|default('Full name') }}</label>
+                <div class="mt-2">
+                    {{ form_widget(registrationForm.name, {'attr': {'class': 'block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-blue-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:placeholder:text-gray-500 dark:focus:outline-blue-500'}}) }}
+                </div>
+                {% if form_errors(registrationForm.name) %}
+                    <div class="mt-2 text-sm text-red-600 dark:text-red-400">
+                        {{ form_errors(registrationForm.name) }}
+                    </div>
+                {% endif %}
             </div>
             
             <div>
-                {{ form_label(registrationForm.email, null, {'label_attr': {'class': 'block text-sm font-medium text-app-text dark:text-app-text-dark mb-2'}}) }}
-                {{ form_widget(registrationForm.email, {'attr': {'class': 'w-full h-12 px-4 rounded-app-sm border border-app-muted/20 dark:border-app-muted-dark/20 bg-app-surface dark:bg-app-surface-dark outline-none text-base text-app-text dark:text-app-text-dark transition-colors duration-200 placeholder:text-app-muted dark:placeholder:text-app-muted-dark focus:border-primary-500 focus:shadow-app-ring'}}) }}
-                {{ form_errors(registrationForm.email) }}
+                <label for="{{ registrationForm.email.vars.id }}" class="block text-sm/6 font-medium text-gray-900 dark:text-gray-100">Email address</label>
+                <div class="mt-2">
+                    {{ form_widget(registrationForm.email, {'attr': {'class': 'block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-blue-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:placeholder:text-gray-500 dark:focus:outline-blue-500'}}) }}
+                </div>
+                {% if form_errors(registrationForm.email) %}
+                    <div class="mt-2 text-sm text-red-600 dark:text-red-400">
+                        {{ form_errors(registrationForm.email) }}
+                    </div>
+                {% endif %}
             </div>
             
             <div>
-                {{ form_label(registrationForm.plainPassword, 'Password', {'label_attr': {'class': 'block text-sm font-medium text-app-text dark:text-app-text-dark mb-2'}}) }}
-                {{ form_widget(registrationForm.plainPassword, {'attr': {'class': 'w-full h-12 px-4 rounded-app-sm border border-app-muted/20 dark:border-app-muted-dark/20 bg-app-surface dark:bg-app-surface-dark outline-none text-base text-app-text dark:text-app-text-dark transition-colors duration-200 placeholder:text-app-muted dark:placeholder:text-app-muted-dark focus:border-primary-500 focus:shadow-app-ring'}}) }}
-                {{ form_errors(registrationForm.plainPassword) }}
+                <label for="{{ registrationForm.plainPassword.vars.id }}" class="block text-sm/6 font-medium text-gray-900 dark:text-gray-100">Password</label>
+                <div class="mt-2">
+                    {{ form_widget(registrationForm.plainPassword, {'attr': {'class': 'block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-blue-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:placeholder:text-gray-500 dark:focus:outline-blue-500'}}) }}
+                </div>
+                {% if form_errors(registrationForm.plainPassword) %}
+                    <div class="mt-2 text-sm text-red-600 dark:text-red-400">
+                        {{ form_errors(registrationForm.plainPassword) }}
+                    </div>
+                {% endif %}
             </div>
             
             <div class="flex items-center">
-                {{ form_widget(registrationForm.agreeTerms, {'attr': {'class': 'mr-2'}}) }}
-                {{ form_label(registrationForm.agreeTerms, null, {'label_attr': {'class': 'text-sm text-app-text dark:text-app-text-dark'}}) }}
-                {{ form_errors(registrationForm.agreeTerms) }}
+                {{ form_widget(registrationForm.agreeTerms, {'attr': {'class': 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600 dark:border-gray-600 dark:bg-gray-700 dark:ring-offset-gray-800 dark:focus:ring-blue-500'}}) }}
+                <div class="ml-3 text-sm">
+                    {{ form_label(registrationForm.agreeTerms, null, {'label_attr': {'class': 'text-gray-900 dark:text-gray-100'}}) }}
+                </div>
             </div>
+            {% if form_errors(registrationForm.agreeTerms) %}
+                <div class="text-sm text-red-600 dark:text-red-400">
+                    {{ form_errors(registrationForm.agreeTerms) }}
+                </div>
+            {% endif %}
 
-            <button type="submit" class="w-full h-12 px-6 rounded-app-sm border-0 cursor-pointer font-semibold text-[15px] shadow-app dark:shadow-app-dark transition-all duration-200 outline-none bg-primary-600 text-white hover:brightness-105 active:translate-y-0.5 focus:shadow-app-ring disabled:opacity-60 disabled:cursor-not-allowed disabled:brightness-100 disabled:transform-none">
-                Register ✈️
-            </button>
+            {% include 'components/_form_button.html.twig' with {
+                'text': 'Create account',
+                'type': 'submit'
+            } %}
         {{ form_end(registrationForm) }}
-    </div>
+    {% endset %}
+
+    {% if app.user %}
+        {% set logged_in_content %}
+            {% include 'components/_already_logged_in.html.twig' with {
+                'user': app.user,
+                'show_register_option': true
+            } %}
+        {% endset %}
+        
+        {% include 'components/_auth_layout.html.twig' with {
+            'title': 'Welcome back!',
+            'form_content': logged_in_content,
+            'footer_links': []
+        } %}
+    {% else %}
+        {% include 'components/_auth_layout.html.twig' with {
+            'title': 'Create your account',
+            'form_content': form_content,
+            'footer_links': [
+                {
+                    'prefix': 'Already have an account? ',
+                    'text': 'Sign in',
+                    'url': path('app_login')
+                }
+            ]
+        } %}
+    {% endif %}
 {% endblock %}

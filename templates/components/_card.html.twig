@@ -1,0 +1,19 @@
+{#
+    Reusable card component
+    
+    Parameters:
+    - content: the content to display inside the card
+    - padding: padding class (default: 'px-4 py-5 sm:p-6')
+    - shadow: shadow class (default: 'shadow-sm')
+    - classes: additional custom classes (optional)
+#}
+
+{% set cardPadding = padding|default('px-4 py-5 sm:p-6') %}
+{% set cardShadow = shadow|default('shadow-sm') %}
+{% set customClasses = classes|default('') %}
+
+<div class="overflow-hidden rounded-lg bg-white {{ cardShadow }} dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10 {{ customClasses }}">
+    <div class="{{ cardPadding }}">
+        {{ content|raw }}
+    </div>
+</div>

@@ -1,0 +1,35 @@
+{#
+    Reusable form input component
+    
+    Parameters:
+    - type: input type (email, password, text, etc.)
+    - name: input name attribute
+    - id: input id attribute
+    - label: label text
+    - value: input value (optional)
+    - required: boolean for required attribute (default: false)
+    - autocomplete: autocomplete attribute value (optional)
+    - placeholder: placeholder text (optional)
+    - error: error message to display (optional)
+#}
+
+<div>
+    <label for="{{ id }}" class="block text-sm/6 font-medium text-gray-900 dark:text-gray-100">{{ label }}</label>
+    <div class="mt-2">
+        <input 
+            id="{{ id }}" 
+            type="{{ type }}" 
+            name="{{ name }}" 
+            value="{{ value|default('') }}"
+            {% if required is defined and required %}required{% endif %}
+            {% if autocomplete is defined %}autocomplete="{{ autocomplete }}"{% endif %}
+            {% if placeholder is defined %}placeholder="{{ placeholder }}"{% endif %}
+            class="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-blue-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:placeholder:text-gray-500 dark:focus:outline-blue-500"
+        />
+    </div>
+    {% if error is defined and error %}
+        <div class="mt-2 text-sm text-red-600 dark:text-red-400">
+            {{ error }}
+        </div>
+    {% endif %}
+</div>

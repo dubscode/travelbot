@@ -60,6 +60,11 @@ class Message
 
     public function setContent(string $content): static
     {
+        // Validate that content is not empty or just whitespace
+        if (trim($content) === '') {
+            throw new \InvalidArgumentException('Message content cannot be empty or just whitespace');
+        }
+        
         $this->content = $content;
         return $this;
     }

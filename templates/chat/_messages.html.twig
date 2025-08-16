@@ -1,5 +1,6 @@
-<turbo-frame id="messages-container">
-{% for message in messages %}
-    {% include 'chat/_message.html.twig' %}
-{% endfor %}
-</turbo-frame>
+{% set content %}
+    {% for message in messages %}
+        {% include 'chat/_message.html.twig' %}
+    {% endfor %}
+{% endset %}
+{% include 'chat/_messages_container.html.twig' with {'content': content} %}

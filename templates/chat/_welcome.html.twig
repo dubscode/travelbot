@@ -1,0 +1,25 @@
+<div class="grid place-items-center text-center p-8 min-h-[300px]">
+    <div>
+        <h3 class="text-2xl mb-4 text-blue-600 dark:text-blue-400 font-bold">👋 Hello {{ user.name }}!</h3>
+        <p class="mb-4 text-gray-600 dark:text-gray-400 text-[15px] leading-relaxed">I'm your AI travel advisor. I can help you discover amazing destinations, plan trips, and provide personalized travel recommendations.</p>
+        
+        {% if user.budget or user.interests or user.climatePreferences %}
+        <div class="my-4 p-4 bg-blue-50/30 dark:bg-blue-600/10 rounded-xl border border-blue-400/20 dark:border-blue-400/30">
+            <h4 class="text-sm mb-2 text-blue-600 dark:text-blue-400 uppercase tracking-wider font-semibold">Your Preferences:</h4>
+            <ul class="list-none p-0">
+                {% if user.budget %}
+                    <li class="text-sm text-gray-900 dark:text-gray-100 mb-1 before:content-['→_'] before:text-blue-500 before:font-bold">Budget: ${{ user.budget }}/day</li>
+                {% endif %}
+                {% if user.interests %}
+                    <li class="text-sm text-gray-900 dark:text-gray-100 mb-1 before:content-['→_'] before:text-blue-500 before:font-bold">Interests: {{ user.interests|join(', ') }}</li>
+                {% endif %}
+                {% if user.climatePreferences %}
+                    <li class="text-sm text-gray-900 dark:text-gray-100 mb-1 before:content-['→_'] before:text-blue-500 before:font-bold">Climate: {{ user.climatePreferences|join(', ') }}</li>
+                {% endif %}
+            </ul>
+        </div>
+        {% endif %}
+        
+        <p class="mb-4 text-gray-600 dark:text-gray-400 text-[15px] leading-relaxed">What kind of trip are you planning?</p>
+    </div>
+</div>

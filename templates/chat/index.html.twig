@@ -12,36 +12,12 @@
     </header>
 {% endblock %}
 
-{% block body %}
+{% block main_content %}
 <main class="bg-white/95 dark:bg-gray-800/95 border border-blue-100/60 dark:border-gray-600/20 rounded-2xl shadow-lg p-6 grid grid-rows-[1fr_auto] min-h-[60vh] backdrop-blur-xl" data-controller="chat">
     <section id="messages" class="overflow-auto grid gap-4 pb-4 scroll-smooth" data-chat-target="messages">
         <turbo-frame id="messages-container">
         {% if messages|length == 0 %}
-            <div class="grid place-items-center text-center p-8 min-h-[300px]">
-                <div>
-                    <h3 class="text-2xl mb-4 text-blue-600 dark:text-blue-400 font-bold">👋 Hello {{ user.name }}!</h3>
-                    <p class="mb-4 text-gray-600 dark:text-gray-400 text-[15px] leading-relaxed">I'm your AI travel advisor. I can help you discover amazing destinations, plan trips, and provide personalized travel recommendations.</p>
-                    
-                    {% if user.budget or user.interests or user.climatePreferences %}
-                    <div class="my-4 p-4 bg-blue-50/30 dark:bg-blue-600/10 rounded-xl border border-blue-400/20 dark:border-blue-400/30">
-                        <h4 class="text-sm mb-2 text-blue-600 dark:text-blue-400 uppercase tracking-wider font-semibold">Your Preferences:</h4>
-                        <ul class="list-none p-0">
-                            {% if user.budget %}
-                                <li class="text-sm text-gray-900 dark:text-gray-100 mb-1 before:content-['→_'] before:text-blue-500 before:font-bold">Budget: ${{ user.budget }}/day</li>
-                            {% endif %}
-                            {% if user.interests %}
-                                <li class="text-sm text-gray-900 dark:text-gray-100 mb-1 before:content-['→_'] before:text-blue-500 before:font-bold">Interests: {{ user.interests|join(', ') }}</li>
-                            {% endif %}
-                            {% if user.climatePreferences %}
-                                <li class="text-sm text-gray-900 dark:text-gray-100 mb-1 before:content-['→_'] before:text-blue-500 before:font-bold">Climate: {{ user.climatePreferences|join(', ') }}</li>
-                            {% endif %}
-                        </ul>
-                    </div>
-                    {% endif %}
-                    
-                    <p class="mb-4 text-gray-600 dark:text-gray-400 text-[15px] leading-relaxed">What kind of trip are you planning?</p>
-                </div>
-            </div>
+            {% include 'chat/_welcome.html.twig' %}
         {% else %}
             {% for message in messages %}
                 {% include 'chat/_message.html.twig' %}
@@ -50,23 +26,6 @@
         </turbo-frame>
     </section>
 
-    <form class="sticky bottom-0 grid grid-cols-[1fr_auto] gap-4 pt-4 bg-gradient-to-t from-gray-50/96 dark:from-gray-900/96 to-transparent" 
-          action="{{ path('app_chat_send') }}" 
-          method="post" 
-          data-action="submit->chat#send"
-          data-turbo-frame="messages-container">
-        <input class="h-14 px-4 rounded-xl border border-gray-300/20 dark:border-gray-600/20 bg-white dark:bg-gray-800 outline-none text-base text-gray-900 dark:text-gray-100 transition-colors duration-200 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20" 
-               name="message" 
-               placeholder="Ask about destinations, travel tips, or plan your trip..." 
-               autocomplete="off" 
-               required
-               aria-label="Chat message"
-               data-chat-target="input" />
-        <button class="h-14 px-6 rounded-xl border-0 cursor-pointer font-semibold text-[15px] shadow-lg transition-all duration-200 outline-none bg-blue-600 text-white hover:bg-blue-700 active:translate-y-0.5 focus:ring-4 focus:ring-blue-500/20 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-blue-600 disabled:transform-none" 
-                type="submit" 
-                data-chat-target="sendBtn">
-            Send ✈️
-        </button>
-    </form>
+    {% include 'chat/_chat_form.html.twig' %}
 </main>
 {% endblock %}

@@ -34,9 +34,13 @@ class ChatController extends AbstractController
         // Get or create active conversation
         $conversation = $this->getOrCreateActiveConversation($user);
         
+        // Get messages using repository for consistent ordering
+        $messages = $this->entityManager->getRepository(Message::class)
+            ->findByConversationOrderedByDate($conversation);
+        
         return $this->render('chat/index.html.twig', [
             'conversation' => $conversation,
-            'messages' => $conversation->getMessages(),
+            'messages' => $messages,
             'user' => $user,
         ]);
     }
@@ -61,15 +65,25 @@ class ChatController extends AbstractController
         $userMessage->setRole(Message::ROLE_USER);
         $userMessage->setConversation($conversation);
         
+        // Add message to conversation's collection for bidirectional relationship
+        $conversation->addMessage($userMessage);
+        
         $this->entityManager->persist($userMessage);
         $this->entityManager->flush();
         
-        // Refresh conversation to get updated messages collection
-        $this->entityManager->refresh($conversation);
+        // Clear entity manager to ensure fresh data
+        $this->entityManager->clear();
+        
+        // Re-fetch conversation with all messages
+        $conversation = $this->entityManager->getRepository(Conversation::class)->find($conversation->getId());
+
+        // Get fresh messages from database using repository
+        $messages = $this->entityManager->getRepository(Message::class)
+            ->findByConversationOrderedByDate($conversation);
 
         // Return updated messages with user message immediately
         return $this->render('chat/_messages_with_ai_trigger.html.twig', [
-            'messages' => $conversation->getMessages(),
+            'messages' => $messages,
             'conversation' => $conversation,
             'user' => $user,
             'userMessageId' => $userMessage->getId(),
@@ -150,13 +164,17 @@ class ChatController extends AbstractController
                             $aiMessage->setConversation($conversation);
                             $aiMessage->setRole(Message::ROLE_ASSISTANT);
                             $aiMessage->setModelUsed($chunk['model']);
-                            $aiMessage->setContent(''); // Start with empty content
-                            $this->entityManager->persist($aiMessage);
-                            $this->entityManager->flush();
+                            // Don't persist until we have actual content
                         }
                         
-                        // Update AI message content periodically (every ~10 tokens to avoid too many DB writes)
-                        if (strlen($fullContent) % 50 === 0) {
+                        // Persist message on first content, then update periodically
+                        if ($aiMessage && !$this->entityManager->contains($aiMessage)) {
+                            // First time persisting - message now has content
+                            $aiMessage->setContent($fullContent);
+                            $this->entityManager->persist($aiMessage);
+                            $this->entityManager->flush();
+                        } elseif (strlen($fullContent) % 50 === 0) {
+                            // Update AI message content periodically (every ~50 chars to avoid too many DB writes)
                             $aiMessage->setContent($fullContent);
                             $this->entityManager->flush();
                         }
@@ -167,8 +185,12 @@ class ChatController extends AbstractController
                         }
                     } elseif ($chunk['type'] === 'stop') {
                         // Finalize the AI message
-                        if ($aiMessage) {
+                        if ($aiMessage && $fullContent) {
                             $aiMessage->setContent($fullContent);
+                            // Persist if not already persisted
+                            if (!$this->entityManager->contains($aiMessage)) {
+                                $this->entityManager->persist($aiMessage);
+                            }
                             $this->entityManager->flush();
                         }
                         
@@ -452,8 +474,14 @@ class ChatController extends AbstractController
         $messages = $conversation->getMessages()->toArray();
         $history = [];
         
-        // Get last 10 messages for context (to avoid token limits)
-        $recentMessages = array_slice($messages, -10);
+        // Filter out messages with empty or null content
+        $validMessages = array_filter($messages, function(Message $message) {
+            $content = $message->getContent();
+            return $content !== null && trim($content) !== '';
+        });
+        
+        // Get last 10 valid messages for context (to avoid token limits)
+        $recentMessages = array_slice($validMessages, -10);
         
         foreach ($recentMessages as $message) {
             $history[] = [

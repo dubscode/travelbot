@@ -21,6 +21,11 @@ Encore
      * and one CSS file (e.g. app.css) if your JavaScript imports CSS.
      */
     .addEntry('app', './assets/app.js')
+    
+    // Add alias for Stimulus controllers
+    .addAliases({
+        '@symfony/stimulus-bridge/controllers.json': require.resolve('./assets/controllers.json')
+    })
 
     // When enabled, Webpack "splits" your files into smaller pieces for greater optimization.
     .splitEntryChunks()

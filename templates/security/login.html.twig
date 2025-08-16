@@ -1,52 +1,73 @@
 {% extends 'base.html.twig' %}
+{% set is_auth_page = true %}
 
-{% block title %}Log in!{% endblock %}
+{% block title %}Sign in to your account{% endblock %}
 
 {% block body %}
-    <div class="bg-app-surface/95 dark:bg-app-surface-dark/95 border border-primary-50/60 dark:border-app-muted-dark/20 rounded-app shadow-app dark:shadow-app-dark p-app-lg max-w-md mx-auto backdrop-blur-xl">
+    {% set form_content %}
         <form method="post" class="space-y-6">
             {% if error %}
-                <div class="p-4 bg-danger-500/10 border border-danger-500/20 rounded-app-sm text-danger-500">
-                    {{ error.messageKey|trans(error.messageData, 'security') }}
-                </div>
+                {% include 'components/_form_error.html.twig' with {
+                    'message': error.messageKey|trans(error.messageData, 'security'),
+                    'type': 'error'
+                } %}
             {% endif %}
 
-            {% if app.user %}
-                <div class="p-4 bg-primary-50/30 dark:bg-primary-600/10 rounded-app-sm border border-primary-400/20">
-                    You are logged in as {{ app.user.userIdentifier }}, <a href="{{ path('app_logout') }}" class="text-primary-600 dark:text-primary-400 underline">Logout</a>
-                </div>
-            {% endif %}
+            {% include 'components/_form_input.html.twig' with {
+                'type': 'email',
+                'name': '_username',
+                'id': 'username',
+                'label': 'Email address',
+                'value': last_username,
+                'required': true,
+                'autocomplete': 'email'
+            } %}
 
-            <h1 class="text-2xl font-bold text-center text-app-text dark:text-app-text-dark mb-6">Please sign in</h1>
-            
             <div>
-                <label for="username" class="block text-sm font-medium text-app-text dark:text-app-text-dark mb-2">Email</label>
-                <input type="email" 
-                       value="{{ last_username }}" 
-                       name="_username" 
-                       id="username" 
-                       class="w-full h-12 px-4 rounded-app-sm border border-app-muted/20 dark:border-app-muted-dark/20 bg-app-surface dark:bg-app-surface-dark outline-none text-base text-app-text dark:text-app-text-dark transition-colors duration-200 placeholder:text-app-muted dark:placeholder:text-app-muted-dark focus:border-primary-500 focus:shadow-app-ring" 
-                       autocomplete="email" 
-                       required 
-                       autofocus>
-            </div>
-            
-            <div>
-                <label for="password" class="block text-sm font-medium text-app-text dark:text-app-text-dark mb-2">Password</label>
-                <input type="password" 
-                       name="_password" 
-                       id="password" 
-                       class="w-full h-12 px-4 rounded-app-sm border border-app-muted/20 dark:border-app-muted-dark/20 bg-app-surface dark:bg-app-surface-dark outline-none text-base text-app-text dark:text-app-text-dark transition-colors duration-200 placeholder:text-app-muted dark:placeholder:text-app-muted-dark focus:border-primary-500 focus:shadow-app-ring" 
-                       autocomplete="current-password" 
-                       required>
+                <div class="flex items-center justify-between">
+                    <label for="password" class="block text-sm/6 font-medium text-gray-900 dark:text-gray-100">Password</label>
+                    <div class="text-sm">
+                        <a href="#" class="font-semibold text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">Forgot password?</a>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <input id="password" type="password" name="_password" required autocomplete="current-password" class="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-blue-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:outline-white/10 dark:placeholder:text-gray-500 dark:focus:outline-blue-500" />
+                </div>
             </div>
             
             <input type="hidden" name="_csrf_token" data-controller="csrf-protection" value="{{ csrf_token('authenticate') }}">
 
-            <button class="w-full h-12 px-6 rounded-app-sm border-0 cursor-pointer font-semibold text-[15px] shadow-app dark:shadow-app-dark transition-all duration-200 outline-none bg-primary-600 text-white hover:brightness-105 active:translate-y-0.5 focus:shadow-app-ring disabled:opacity-60 disabled:cursor-not-allowed disabled:brightness-100 disabled:transform-none" 
-                    type="submit">
-                Sign in ✈️
-            </button>
+            {% include 'components/_form_button.html.twig' with {
+                'text': 'Sign in',
+                'type': 'submit'
+            } %}
         </form>
-    </div>
+    {% endset %}
+
+    {% if app.user %}
+        {% set logged_in_content %}
+            {% include 'components/_already_logged_in.html.twig' with {
+                'user': app.user,
+                'show_register_option': false
+            } %}
+        {% endset %}
+        
+        {% include 'components/_auth_layout.html.twig' with {
+            'title': 'Welcome back!',
+            'form_content': logged_in_content,
+            'footer_links': []
+        } %}
+    {% else %}
+        {% include 'components/_auth_layout.html.twig' with {
+            'title': 'Sign in to your account',
+            'form_content': form_content,
+            'footer_links': [
+                {
+                    'prefix': 'Not a member? ',
+                    'text': 'Create your account',
+                    'url': path('app_register')
+                }
+            ]
+        } %}
+    {% endif %}
 {% endblock %}
