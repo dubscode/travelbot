@@ -1,0 +1,37 @@
+<turbo-frame id="sidebar-conversations">
+    <ul role="list" class="-mx-2 mt-2 space-y-1">
+        {% if conversations|length > 0 %}
+            {% for conversation in conversations %}
+                {% set is_current = current_conversation is defined and current_conversation and conversation.id.toString == current_conversation.id.toString %}
+                {% set conversation_title = conversation.title ?: 'New Chat' %}
+                {% set conversation_url = path('app_chat_conversation', {'id': conversation.id}) %}
+                
+                <li>
+                    <a href="{{ conversation_url }}" 
+                       data-turbo-frame="_top"
+                       class="group flex gap-x-3 rounded-md p-2 text-sm font-semibold transition-colors
+                              {% if is_current %}
+                                  bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400
+                              {% else %}
+                                  text-gray-700 hover:text-blue-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5
+                              {% endif %}">
+                        <svg class="h-5 w-5 shrink-0 {% if is_current %}text-blue-600 dark:text-blue-400{% else %}text-gray-400 group-hover:text-blue-600 dark:group-hover:text-white{% endif %}" 
+                             fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
+                        </svg>
+                        <span class="truncate">{{ conversation_title }}</span>
+                        {% if conversation.messages|length > 0 %}
+                            <span class="ml-auto w-5 min-w-max rounded-full bg-white px-1.5 py-0.5 text-center text-xs font-medium text-gray-600 dark:bg-gray-900 dark:text-white">
+                                {{ conversation.messages|length }}
+                            </span>
+                        {% endif %}
+                    </a>
+                </li>
+            {% endfor %}
+        {% else %}
+            <li class="text-sm text-gray-500 dark:text-gray-400 italic p-2">
+                No conversations yet. Start a new chat!
+            </li>
+        {% endif %}
+    </ul>
+</turbo-frame>

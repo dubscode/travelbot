@@ -38,9 +38,14 @@ class ChatController extends AbstractController
         $messages = $this->entityManager->getRepository(Message::class)
             ->findByConversationOrderedByDate($conversation);
         
+        // Get all user conversations for sidebar
+        $conversations = $this->entityManager->getRepository(Conversation::class)
+            ->findByUserOrderedByRecent($user);
+        
         return $this->render('chat/index.html.twig', [
             'conversation' => $conversation,
             'messages' => $messages,
+            'conversations' => $conversations,
             'user' => $user,
         ]);
     }
@@ -70,6 +75,9 @@ class ChatController extends AbstractController
         
         $this->entityManager->persist($userMessage);
         $this->entityManager->flush();
+        
+        // Update conversation title if it's still the default
+        $this->updateConversationTitle($conversation, $messageContent);
         
         // Clear entity manager to ensure fresh data
         $this->entityManager->clear();
@@ -411,15 +419,27 @@ class ChatController extends AbstractController
     #[Route('/conversation/{id}', name: 'app_chat_conversation')]
     public function viewConversation(Conversation $conversation): Response
     {
+        /** @var \App\Entity\User $user */
+        $user = $this->getUser();
+        
         // Ensure user owns this conversation
-        if ($conversation->getUser() !== $this->getUser()) {
+        if ($conversation->getUser() !== $user) {
             throw $this->createAccessDeniedException();
         }
         
+        // Get messages using repository for consistent ordering
+        $messages = $this->entityManager->getRepository(Message::class)
+            ->findByConversationOrderedByDate($conversation);
+        
+        // Get all user conversations for sidebar
+        $conversations = $this->entityManager->getRepository(Conversation::class)
+            ->findByUserOrderedByRecent($user);
+        
         return $this->render('chat/index.html.twig', [
             'conversation' => $conversation,
-            'messages' => $conversation->getMessages(),
-            'user' => $this->getUser(),
+            'messages' => $messages,
+            'conversations' => $conversations,
+            'user' => $user,
         ]);
     }
 
@@ -447,6 +467,31 @@ class ChatController extends AbstractController
         $this->entityManager->flush();
         
         return $this->redirectToRoute('app_chat');
+    }
+
+    #[Route('/sidebar', name: 'app_chat_sidebar', methods: ['GET'])]
+    public function sidebar(Request $request): Response
+    {
+        /** @var \App\Entity\User $user */
+        $user = $this->getUser();
+        
+        // Get all user conversations for sidebar
+        $conversations = $this->entityManager->getRepository(Conversation::class)
+            ->findByUserOrderedByRecent($user);
+        
+        // Find current conversation if ID provided
+        $currentConversation = null;
+        $currentConversationId = $request->query->get('currentConversationId');
+        if ($currentConversationId) {
+            $currentConversation = $this->entityManager->getRepository(Conversation::class)
+                ->find($currentConversationId);
+        }
+        
+        return $this->render('chat/_sidebar_conversations.html.twig', [
+            'conversations' => $conversations,
+            'current_conversation' => $currentConversation,
+            'user' => $user,
+        ]);
     }
 
     private function getOrCreateActiveConversation($user): Conversation
@@ -491,5 +536,24 @@ class ChatController extends AbstractController
         }
         
         return $history;
+    }
+
+    private function updateConversationTitle(Conversation $conversation, string $messageContent): void
+    {
+        // Only update if the title is still the default or empty
+        if (!$conversation->getTitle() || 
+            in_array($conversation->getTitle(), ['Travel Chat', 'New Chat', ''])) {
+            
+            // Generate AI-powered title using the Haiku model for speed
+            $title = $this->travelRecommender->generateConversationTitle($messageContent);
+            
+            if ($title) {
+                $conversation->setTitle($title);
+                $conversation->setUpdatedAt(new \DateTime());
+                
+                $this->entityManager->persist($conversation);
+                $this->entityManager->flush();
+            }
+        }
     }
 }

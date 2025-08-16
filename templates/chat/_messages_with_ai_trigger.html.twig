@@ -3,13 +3,9 @@
         {% include 'chat/_message.html.twig' %}
     {% endfor %}
 
-    <script>
-    // Initialize chat streaming with required URLs
-    const streaming = new window.ChatStreaming(
-        '{{ path('app_chat_stream', {'messageId': userMessageId}) }}',
-        '{{ path('app_chat_ai_response', {'messageId': userMessageId}) }}'
-    );
-    streaming.initializeStreaming();
-    </script>
+    <div data-ai-trigger="{{ userMessageId }}" 
+         data-stream-url="{{ path('app_chat_stream', {'messageId': userMessageId}) }}"
+         data-fallback-url="{{ path('app_chat_ai_response', {'messageId': userMessageId}) }}"
+         style="display: none;"></div>
 {% endset %}
 {% include 'chat/_messages_container.html.twig' with {'content': content} %}

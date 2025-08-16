@@ -7,12 +7,16 @@ export class ChatStreaming {
         this.streamUrl = streamUrl;
         this.fallbackUrl = fallbackUrl;
         this.eventSource = null;
+        this.rawText = ''; // Accumulate raw text for proper markdown processing
     }
 
     /**
      * Initialize streaming for a new AI response
      */
     initializeStreaming() {
+        // Reset accumulated text for new conversation
+        this.rawText = '';
+        
         setTimeout(() => {
             this.showTypingIndicator();
             this.createStreamingMessage();
@@ -133,6 +137,56 @@ export class ChatStreaming {
     }
 
     /**
+     * Format text for display with comprehensive markdown support
+     */
+    formatText(text) {
+        // Escape HTML entities for security
+        const escaped = text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+        
+        // Convert newlines to <br> tags (matches Twig's nl2br filter)
+        let formatted = escaped.replace(/\n/g, '<br>');
+        
+        // Headers - process before other formatting
+        formatted = formatted.replace(/^### (.*?)(<br>|$)/gm, '<h3 style="font-size: 1.25rem; font-weight: bold; margin: 0.5rem 0;">$1</h3>$2');
+        formatted = formatted.replace(/^## (.*?)(<br>|$)/gm, '<h2 style="font-size: 1.5rem; font-weight: bold; margin: 0.75rem 0;">$1</h2>$2');
+        formatted = formatted.replace(/^# (.*?)(<br>|$)/gm, '<h1 style="font-size: 1.75rem; font-weight: bold; margin: 1rem 0;">$1</h1>$2');
+        
+        // Bold: **text** -> <strong>text</strong>
+        formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        
+        // Italic: *text* -> <em>text</em> (but not inside ** bold text)
+        formatted = formatted.replace(/(?<!\*)\*([^*<>]+?)\*(?!\*)/g, '<em>$1</em>');
+        
+        // Code: `code` -> <code>code</code>
+        formatted = formatted.replace(/`([^`]+)`/g, '<code style="background-color: #f3f4f6; padding: 0.125rem 0.25rem; border-radius: 0.25rem; font-family: monospace;">$1</code>');
+        
+        // Unordered lists: - item or * item
+        formatted = formatted.replace(/^[-*] (.*?)(<br>|$)/gm, '<li style="margin-left: 1rem;">$1</li>$2');
+        
+        // Ordered lists: 1. item, 2. item etc.
+        formatted = formatted.replace(/^\d+\. (.*?)(<br>|$)/gm, '<li style="margin-left: 1rem; list-style-type: decimal;">$1</li>$2');
+        
+        // Links: [text](url) -> <a href="url">text</a>
+        formatted = formatted.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color: #3b82f6; text-decoration: underline;">$1</a>');
+        
+        // Wrap consecutive list items in ul/ol tags
+        formatted = formatted.replace(/(<li[^>]*>.*?<\/li>(<br>)?)+/g, (match) => {
+            if (match.includes('list-style-type: decimal')) {
+                return `<ol style="margin: 0.5rem 0;">${match.replace(/<br>/g, '')}</ol>`;
+            } else {
+                return `<ul style="margin: 0.5rem 0; list-style-type: disc;">${match.replace(/<br>/g, '')}</ul>`;
+            }
+        });
+        
+        return formatted;
+    }
+
+    /**
      * Handle incoming token
      */
     handleToken(event) {
@@ -149,26 +203,26 @@ export class ChatStreaming {
             if (cursor) cursor.style.display = 'inline';
         }
         
-        // Remove cursor temporarily to add token, but keep reference
-        let cursorWasVisible = false;
-        if (cursor && cursor.parentNode) {
-            cursorWasVisible = true;
-            cursor.remove();
-        }
+        // Accumulate raw text for proper markdown processing
+        this.rawText += data.text;
         
-        // Create text node and append to existing content
-        const tokenSpan = document.createElement('span');
-        tokenSpan.textContent = data.text;
-        contentElement.appendChild(tokenSpan);
+        // Format the entire accumulated text
+        const formattedText = this.formatText(this.rawText);
         
-        // Re-create and add cursor back if it was visible
-        if (cursorWasVisible) {
-            cursor = document.createElement('span');
-            cursor.id = 'cursor';
-            cursor.textContent = '▋';
-            cursor.style.display = 'inline';
-            contentElement.appendChild(cursor);
-        }
+        // Clear content and add the newly formatted text
+        const existingContent = contentElement.innerHTML;
+        const cursorPattern = /<span[^>]*id="cursor"[^>]*>.*?<\/span>/;
+        const contentWithoutCursor = existingContent.replace(cursorPattern, '');
+        
+        // Replace content with formatted text
+        contentElement.innerHTML = formattedText;
+        
+        // Add cursor back at the end
+        const cursor2 = document.createElement('span');
+        cursor2.id = 'cursor';
+        cursor2.textContent = '▋';
+        cursor2.style.display = 'inline';
+        contentElement.appendChild(cursor2);
         
         this.scrollToBottom();
     }
@@ -191,6 +245,9 @@ export class ChatStreaming {
             modelInfo.innerHTML = '🧠 Detailed response';
             contentElement.appendChild(modelInfo);
         }
+        
+        // Refresh sidebar to show updated conversation title
+        this.refreshSidebar();
         
         // Close connection and re-enable form
         this.eventSource.close();
@@ -294,6 +351,43 @@ export class ChatStreaming {
             btn.disabled = false;
             btn.textContent = 'Send 📨';
         }
+    }
+
+    /**
+     * Refresh sidebar to show updated conversation title
+     */
+    refreshSidebar() {
+        // Extract current conversation ID from URL
+        const currentPath = window.location.pathname;
+        const conversationMatch = currentPath.match(/\/chat\/conversation\/([a-f0-9-]+)/);
+        const conversationId = conversationMatch ? conversationMatch[1] : null;
+        
+        // Build sidebar refresh URL
+        const sidebarUrl = conversationId 
+            ? `/chat/sidebar?currentConversationId=${conversationId}`
+            : '/chat/sidebar';
+        
+        // Fetch and update sidebar
+        fetch(sidebarUrl, {
+            headers: {
+                'Accept': 'text/html',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const newSidebar = doc.querySelector('turbo-frame[id="sidebar-conversations"]');
+            const currentSidebar = document.querySelector('turbo-frame[id="sidebar-conversations"]');
+            
+            if (newSidebar && currentSidebar) {
+                currentSidebar.innerHTML = newSidebar.innerHTML;
+            }
+        })
+        .catch(error => {
+            console.error('Failed to refresh sidebar:', error);
+        });
     }
 
     /**

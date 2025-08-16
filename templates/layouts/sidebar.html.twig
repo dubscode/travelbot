@@ -1,0 +1,65 @@
+{% extends 'base.html.twig' %}
+
+{% block body %}
+    {% set sidebar_content %}
+        {% block sidebar %}{% endblock %}
+    {% endset %}
+
+    <div class="h-full flex">
+        <!-- Desktop sidebar -->
+        <div class="hidden lg:flex lg:w-72 lg:flex-col">
+            {{ sidebar_content|raw }}
+        </div>
+
+        <!-- Mobile sidebar overlay -->
+        <div class="lg:hidden" id="mobile-sidebar-overlay" style="display: none;">
+            <div class="fixed inset-0 z-50 flex">
+                <!-- Overlay background -->
+                <div class="fixed inset-0 bg-gray-900/80" onclick="document.getElementById('mobile-sidebar-overlay').style.display='none'"></div>
+                
+                <!-- Sidebar panel -->
+                <div class="relative flex w-full max-w-xs flex-1 flex-col bg-white dark:bg-gray-900">
+                    <div class="absolute top-0 right-0 -mr-12 pt-2">
+                        <button type="button" 
+                                class="ml-1 flex h-10 w-10 items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
+                                onclick="document.getElementById('mobile-sidebar-overlay').style.display='none'">
+                            <span class="sr-only">Close sidebar</span>
+                            <svg class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                    {{ sidebar_content|raw }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Main content area -->
+        <div class="flex flex-1 flex-col overflow-hidden">
+            <!-- Mobile header with hamburger -->
+            <div class="lg:hidden">
+                <div class="flex h-16 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                    <button type="button" 
+                            class="-m-2.5 p-2.5 text-gray-700 lg:hidden dark:text-gray-200"
+                            onclick="document.getElementById('mobile-sidebar-overlay').style.display='flex'">
+                        <span class="sr-only">Open sidebar</span>
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                        </svg>
+                    </button>
+                    <div class="flex items-center gap-x-3">
+                        <span class="text-2xl">🌍</span>
+                        <h1 class="text-lg font-semibold text-gray-900 dark:text-white">TravelBot</h1>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main content -->
+            <main class="flex flex-1 overflow-hidden">
+                <div class="flex flex-1 flex-col overflow-hidden bg-gray-50 dark:bg-gray-900">
+                    {% block main_content %}{% endblock %}
+                </div>
+            </main>
+        </div>
+    </div>
+{% endblock %}

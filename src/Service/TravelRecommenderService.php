@@ -179,6 +179,7 @@ class TravelRecommenderService
         
         // TODO: Implement smarter filtering based on message content
         // This could include keyword matching, budget filtering, etc.
+        // The $userMessage parameter is currently unused but kept for future implementation
         
         return $allDestinations;
     }
@@ -203,5 +204,44 @@ class TravelRecommenderService
         }
 
         return false; // Use Sonnet by default for detailed travel planning
+    }
+
+    public function generateConversationTitle(string $userMessage): ?string
+    {
+        try {
+            $messages = [
+                [
+                    'role' => 'user',
+                    'content' => [
+                        [
+                            'text' => "Generate a short, descriptive title (3-6 words max) for a travel conversation that starts with this message:\n\n\"$userMessage\"\n\nRespond with ONLY the title, no quotes, no explanation."
+                        ]
+                    ]
+                ]
+            ];
+
+            $response = $this->claudeService->generateResponse($messages, true); // Use Haiku for speed
+            $title = trim($response['content']);
+            
+            // Clean up any quotes or extra characters
+            $title = trim($title, '"\'');
+            
+            // Ensure title is reasonable length (max 60 chars)
+            if (strlen($title) > 60) {
+                $title = substr($title, 0, 57) . '...';
+            }
+            
+            return $title ?: null;
+            
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to generate conversation title: ' . $e->getMessage(), [
+                'userMessage' => $userMessage,
+            ]);
+            
+            // Fallback to simple truncation
+            return strlen($userMessage) > 50 
+                ? substr($userMessage, 0, 47) . '...'
+                : $userMessage;
+        }
     }
 }

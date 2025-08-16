@@ -7,6 +7,9 @@ export default class extends Controller {
   connect() {
     this.scrollToBottom()
     this.inputTarget.focus()
+    
+    // Listen for Turbo Frame renders to trigger AI streaming
+    document.addEventListener('turbo:frame-render', this.handleFrameRender.bind(this))
   }
 
   // Handle form submission
@@ -85,8 +88,36 @@ export default class extends Controller {
     }
   }
 
+  // Handle Turbo Frame render events to trigger AI streaming
+  handleFrameRender(event) {
+    // Only handle renders for our messages frame
+    if (event.target.id === 'messages-container') {
+      this.checkForAITrigger()
+    }
+  }
+
+  // Check for AI trigger and start streaming if found
+  checkForAITrigger() {
+    const trigger = document.querySelector('[data-ai-trigger]')
+    if (trigger) {
+      const messageId = trigger.dataset.aiTrigger
+      const streamUrl = trigger.dataset.streamUrl
+      const fallbackUrl = trigger.dataset.fallbackUrl
+      
+      // Remove trigger to prevent double-triggering
+      trigger.remove()
+      
+      // Initialize AI streaming
+      if (window.ChatStreaming && streamUrl && fallbackUrl) {
+        const streaming = new window.ChatStreaming(streamUrl, fallbackUrl)
+        streaming.initializeStreaming()
+      }
+    }
+  }
+
   // Disconnect cleanup
   disconnect() {
-    // Clean up any event listeners if needed
+    // Clean up event listeners
+    document.removeEventListener('turbo:frame-render', this.handleFrameRender.bind(this))
   }
 }
