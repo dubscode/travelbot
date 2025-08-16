@@ -3,22 +3,49 @@
 {% block title %}Register{% endblock %}
 
 {% block body %}
-    {% for flash_error in app.flashes('verify_email_error') %}
-        <div class="alert alert-danger" role="alert">{{ flash_error }}</div>
-    {% endfor %}
+    <div class="bg-app-surface/95 dark:bg-app-surface-dark/95 border border-primary-50/60 dark:border-app-muted-dark/20 rounded-app shadow-app dark:shadow-app-dark p-app-lg max-w-md mx-auto backdrop-blur-xl">
+        {% for flash_error in app.flashes('verify_email_error') %}
+            <div class="p-4 bg-danger-500/10 border border-danger-500/20 rounded-app-sm text-danger-500 mb-6" role="alert">
+                {{ flash_error }}
+            </div>
+        {% endfor %}
 
-    <h1>Register</h1>
+        <h1 class="text-2xl font-bold text-center text-app-text dark:text-app-text-dark mb-6">Register</h1>
 
-    {{ form_errors(registrationForm) }}
+        {% if form_errors(registrationForm) %}
+            <div class="p-4 bg-danger-500/10 border border-danger-500/20 rounded-app-sm text-danger-500 mb-6">
+                {{ form_errors(registrationForm) }}
+            </div>
+        {% endif %}
 
-    {{ form_start(registrationForm) }}
-        {{ form_row(registrationForm.name) }}
-        {{ form_row(registrationForm.email) }}
-        {{ form_row(registrationForm.plainPassword, {
-            label: 'Password'
-        }) }}
-        {{ form_row(registrationForm.agreeTerms) }}
+        {{ form_start(registrationForm, {'attr': {'class': 'space-y-6'}}) }}
+            <div>
+                {{ form_label(registrationForm.name, null, {'label_attr': {'class': 'block text-sm font-medium text-app-text dark:text-app-text-dark mb-2'}}) }}
+                {{ form_widget(registrationForm.name, {'attr': {'class': 'w-full h-12 px-4 rounded-app-sm border border-app-muted/20 dark:border-app-muted-dark/20 bg-app-surface dark:bg-app-surface-dark outline-none text-base text-app-text dark:text-app-text-dark transition-colors duration-200 placeholder:text-app-muted dark:placeholder:text-app-muted-dark focus:border-primary-500 focus:shadow-app-ring'}}) }}
+                {{ form_errors(registrationForm.name) }}
+            </div>
+            
+            <div>
+                {{ form_label(registrationForm.email, null, {'label_attr': {'class': 'block text-sm font-medium text-app-text dark:text-app-text-dark mb-2'}}) }}
+                {{ form_widget(registrationForm.email, {'attr': {'class': 'w-full h-12 px-4 rounded-app-sm border border-app-muted/20 dark:border-app-muted-dark/20 bg-app-surface dark:bg-app-surface-dark outline-none text-base text-app-text dark:text-app-text-dark transition-colors duration-200 placeholder:text-app-muted dark:placeholder:text-app-muted-dark focus:border-primary-500 focus:shadow-app-ring'}}) }}
+                {{ form_errors(registrationForm.email) }}
+            </div>
+            
+            <div>
+                {{ form_label(registrationForm.plainPassword, 'Password', {'label_attr': {'class': 'block text-sm font-medium text-app-text dark:text-app-text-dark mb-2'}}) }}
+                {{ form_widget(registrationForm.plainPassword, {'attr': {'class': 'w-full h-12 px-4 rounded-app-sm border border-app-muted/20 dark:border-app-muted-dark/20 bg-app-surface dark:bg-app-surface-dark outline-none text-base text-app-text dark:text-app-text-dark transition-colors duration-200 placeholder:text-app-muted dark:placeholder:text-app-muted-dark focus:border-primary-500 focus:shadow-app-ring'}}) }}
+                {{ form_errors(registrationForm.plainPassword) }}
+            </div>
+            
+            <div class="flex items-center">
+                {{ form_widget(registrationForm.agreeTerms, {'attr': {'class': 'mr-2'}}) }}
+                {{ form_label(registrationForm.agreeTerms, null, {'label_attr': {'class': 'text-sm text-app-text dark:text-app-text-dark'}}) }}
+                {{ form_errors(registrationForm.agreeTerms) }}
+            </div>
 
-        <button type="submit" class="btn">Register</button>
-    {{ form_end(registrationForm) }}
+            <button type="submit" class="w-full h-12 px-6 rounded-app-sm border-0 cursor-pointer font-semibold text-[15px] shadow-app dark:shadow-app-dark transition-all duration-200 outline-none bg-primary-600 text-white hover:brightness-105 active:translate-y-0.5 focus:shadow-app-ring disabled:opacity-60 disabled:cursor-not-allowed disabled:brightness-100 disabled:transform-none">
+                Register ✈️
+            </button>
+        {{ form_end(registrationForm) }}
+    </div>
 {% endblock %}

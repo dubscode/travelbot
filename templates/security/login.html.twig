@@ -3,36 +3,50 @@
 {% block title %}Log in!{% endblock %}
 
 {% block body %}
-    <form method="post">
-        {% if error %}
-            <div class="alert alert-danger">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
-        {% endif %}
+    <div class="bg-app-surface/95 dark:bg-app-surface-dark/95 border border-primary-50/60 dark:border-app-muted-dark/20 rounded-app shadow-app dark:shadow-app-dark p-app-lg max-w-md mx-auto backdrop-blur-xl">
+        <form method="post" class="space-y-6">
+            {% if error %}
+                <div class="p-4 bg-danger-500/10 border border-danger-500/20 rounded-app-sm text-danger-500">
+                    {{ error.messageKey|trans(error.messageData, 'security') }}
+                </div>
+            {% endif %}
 
-        {% if app.user %}
-            <div class="mb-3">
-                You are logged in as {{ app.user.userIdentifier }}, <a href="{{ path('app_logout') }}">Logout</a>
+            {% if app.user %}
+                <div class="p-4 bg-primary-50/30 dark:bg-primary-600/10 rounded-app-sm border border-primary-400/20">
+                    You are logged in as {{ app.user.userIdentifier }}, <a href="{{ path('app_logout') }}" class="text-primary-600 dark:text-primary-400 underline">Logout</a>
+                </div>
+            {% endif %}
+
+            <h1 class="text-2xl font-bold text-center text-app-text dark:text-app-text-dark mb-6">Please sign in</h1>
+            
+            <div>
+                <label for="username" class="block text-sm font-medium text-app-text dark:text-app-text-dark mb-2">Email</label>
+                <input type="email" 
+                       value="{{ last_username }}" 
+                       name="_username" 
+                       id="username" 
+                       class="w-full h-12 px-4 rounded-app-sm border border-app-muted/20 dark:border-app-muted-dark/20 bg-app-surface dark:bg-app-surface-dark outline-none text-base text-app-text dark:text-app-text-dark transition-colors duration-200 placeholder:text-app-muted dark:placeholder:text-app-muted-dark focus:border-primary-500 focus:shadow-app-ring" 
+                       autocomplete="email" 
+                       required 
+                       autofocus>
             </div>
-        {% endif %}
-
-        <h1 class="h3 mb-3 font-weight-normal">Please sign in</h1>
-        <label for="username">Email</label>
-        <input type="email" value="{{ last_username }}" name="_username" id="username" class="form-control" autocomplete="email" required autofocus>
-        <label for="password">Password</label>
-        <input type="password" name="_password" id="password" class="form-control" autocomplete="current-password" required>
-        <input type="hidden" name="_csrf_token" data-controller="csrf-protection" value="{{ csrf_token('authenticate') }}">
-
-        {#
-            Uncomment this section and add a remember_me option below your firewall to activate remember me functionality.
-            See https://symfony.com/doc/current/security/remember_me.html
-
-            <div class="checkbox mb-3">
-                <input type="checkbox" name="_remember_me" id="_remember_me">
-                <label for="_remember_me">Remember me</label>
+            
+            <div>
+                <label for="password" class="block text-sm font-medium text-app-text dark:text-app-text-dark mb-2">Password</label>
+                <input type="password" 
+                       name="_password" 
+                       id="password" 
+                       class="w-full h-12 px-4 rounded-app-sm border border-app-muted/20 dark:border-app-muted-dark/20 bg-app-surface dark:bg-app-surface-dark outline-none text-base text-app-text dark:text-app-text-dark transition-colors duration-200 placeholder:text-app-muted dark:placeholder:text-app-muted-dark focus:border-primary-500 focus:shadow-app-ring" 
+                       autocomplete="current-password" 
+                       required>
             </div>
-        #}
+            
+            <input type="hidden" name="_csrf_token" data-controller="csrf-protection" value="{{ csrf_token('authenticate') }}">
 
-        <button class="btn btn-lg btn-primary" type="submit">
-            Sign in
-        </button>
-    </form>
+            <button class="w-full h-12 px-6 rounded-app-sm border-0 cursor-pointer font-semibold text-[15px] shadow-app dark:shadow-app-dark transition-all duration-200 outline-none bg-primary-600 text-white hover:brightness-105 active:translate-y-0.5 focus:shadow-app-ring disabled:opacity-60 disabled:cursor-not-allowed disabled:brightness-100 disabled:transform-none" 
+                    type="submit">
+                Sign in ✈️
+            </button>
+        </form>
+    </div>
 {% endblock %}

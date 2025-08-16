@@ -1,25 +1,28 @@
 <turbo-frame id="messages-container">
 {% for message in messages %}
-    <div class="msg {% if message.role == 'user' %}msg--user{% else %}msg--bot{% endif %}">
-        <div class="msg__avatar">
-            {% if message.role == 'user' %}
-                {{ user.name|first|upper }}
-            {% else %}
-                🤖
-            {% endif %}
-        </div>
-        <div class="msg__bubble">
-            <div class="msg__text">{{ message.content|nl2br }}</div>
-            {% if message.modelUsed %}
-                <div class="msg__meta">
-                    {% if 'haiku' in message.modelUsed|lower %}
-                        ⚡ Fast response
-                    {% else %}
-                        🧠 Detailed response
-                    {% endif %}
-                </div>
-            {% endif %}
-        </div>
-    </div>
+    {% if message.role == 'user' %}
+        <article class="grid grid-cols-[1fr_auto] gap-3 items-start max-w-[85%] justify-self-end">
+            <div class="p-3.5 rounded-xl shadow-lg bg-gradient-to-br from-blue-500 to-blue-400 text-white relative">
+                <div class="text-[15px] leading-6">{{ message.content|nl2br }}</div>
+            </div>
+            <div class="w-9 h-9 grid place-items-center bg-green-500 text-white rounded-full shadow-lg text-sm font-semibold flex-shrink-0">{{ user.name|first|upper }}</div>
+        </article>
+    {% else %}
+        <article class="grid grid-cols-[auto_1fr] gap-3 items-start max-w-[85%] justify-self-start">
+            <div class="w-9 h-9 grid place-items-center bg-blue-500 text-white rounded-full shadow-lg text-sm font-semibold flex-shrink-0">🤖</div>
+            <div class="p-3.5 rounded-xl shadow-lg bg-white dark:bg-gray-800 border border-gray-200/20 dark:border-gray-600/20 text-gray-900 dark:text-gray-100 relative">
+                <div class="text-[15px] leading-6">{{ message.content|nl2br }}</div>
+                {% if message.modelUsed %}
+                    <div class="mt-2 text-xs opacity-70 font-medium">
+                        {% if 'haiku' in message.modelUsed|lower %}
+                            ⚡ Fast response
+                        {% else %}
+                            🧠 Detailed response
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </article>
+    {% endif %}
 {% endfor %}
 </turbo-frame>
