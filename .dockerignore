@@ -1,0 +1,56 @@
+# Git
+.git
+.gitignore
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Cache and logs
+/var/cache/*
+/var/log/*
+/var/sessions/*
+
+# Dependencies
+/vendor/
+/node_modules/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation
+README.md
+README_AI_ARCHITECTURE.md
+/docs/
+
+# Tests
+/tests/
+phpunit.xml
+phpunit.dist.xml
+
+# Docker files
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Composer cache
+/.composer/
+
+# Asset build artifacts
+/public/build/
+
+# Backup files
+*.backup
+*.bak
+
+# Temporary files
+/tmp/
