@@ -31,6 +31,22 @@
     "watch": "encore dev --watch",
     "build": "encore production --progress",
     "start": "npm run dev && symfony server:start",
-    "dev:watch": "concurrently \"npm run watch\" \"symfony server:start\" --names \"webpack,symfony\" --prefix-colors \"blue,green\""
+    "dev:watch": "concurrently \"npm run watch\" \"symfony server:start\" --names \"webpack,symfony\" --prefix-colors \"blue,green\"",
+    "messenger:consume": "bin/console messenger:consume embeddings",
+    "messenger:consume:limit": "bin/console messenger:consume embeddings --limit=100 --time-limit=3600",
+    "messenger:consume:debug": "bin/console messenger:consume embeddings -vvv --limit=10",
+    "messenger:status": "bin/console messenger:failed:show",
+    "messenger:retry": "bin/console messenger:failed:retry",
+    "db:clear": "bin/console app:clear-all --force",
+    "db:clear:interactive": "bin/console app:clear-all",
+    "db:seed": "bin/console app:seed-destinations --count=10 && bin/console app:seed-resorts --count=5 && bin/console app:seed-amenities && bin/console app:generate-embeddings --entity=all",
+    "db:seed:clear": "bin/console app:clear-all --force && npm run db:seed",
+    "db:seed:full": "bin/console app:seed-destinations --count=75 && bin/console app:seed-resorts --count=10 && bin/console app:seed-amenities && bin/console app:generate-embeddings --entity=all",
+    "db:seed:safe": "php -d memory_limit=1G bin/console app:seed-destinations --count=10 && php -d memory_limit=1G bin/console app:seed-resorts --count=5 && php -d memory_limit=1G bin/console app:seed-amenities && bin/console app:generate-embeddings --entity=all",
+    "db:seed:full:safe": "php -d memory_limit=1G bin/console app:seed-destinations --count=75 && php -d memory_limit=1G bin/console app:seed-resorts --count=15 && php -d memory_limit=1G bin/console app:seed-amenities && bin/console app:generate-embeddings --entity=all",
+    "db:reset": "npm run db:clear && npm run db:seed && npm run messenger:consume:limit",
+    "db:reset:full": "npm run db:clear && npm run db:seed:full && npm run messenger:consume",
+    "db:reset:safe": "npm run db:clear && npm run db:seed:safe && npm run messenger:consume:limit",
+    "db:reset:full:safe": "npm run db:clear && npm run db:seed:full:safe && npm run messenger:consume"
   }
 }

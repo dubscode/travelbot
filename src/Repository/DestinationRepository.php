@@ -16,28 +16,94 @@ class DestinationRepository extends ServiceEntityRepository
         parent::__construct($registry, Destination::class);
     }
 
-    //    /**
-    //     * @return Destination[] Returns an array of Destination objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('d')
-    //            ->andWhere('d.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('d.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
+    /**
+     * Find destinations by country
+     */
+    public function findByCountry(string $country): array
+    {
+        return $this->createQueryBuilder('d')
+            ->andWhere('d.country = :country')
+            ->setParameter('country', $country)
+            ->orderBy('d.popularityScore', 'DESC')
+            ->addOrderBy('d.name', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 
-    //    public function findOneBySomeField($value): ?Destination
-    //    {
-    //        return $this->createQueryBuilder('d')
-    //            ->andWhere('d.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+    /**
+     * Find destinations by tags
+     */
+    public function findByTags(array $tags): array
+    {
+        $qb = $this->createQueryBuilder('d');
+        
+        foreach ($tags as $index => $tag) {
+            $qb->andWhere('JSON_CONTAINS(d.tags, :tag' . $index . ') = 1')
+               ->setParameter('tag' . $index, json_encode($tag));
+        }
+        
+        return $qb->orderBy('d.popularityScore', 'DESC')
+                  ->addOrderBy('d.name', 'ASC')
+                  ->getQuery()
+                  ->getResult();
+    }
+
+    /**
+     * Find destinations with minimum popularity score
+     */
+    public function findByPopularityScore(int $minScore): array
+    {
+        return $this->createQueryBuilder('d')
+            ->andWhere('d.popularityScore >= :minScore')
+            ->setParameter('minScore', $minScore)
+            ->orderBy('d.popularityScore', 'DESC')
+            ->addOrderBy('d.name', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Find destination with its resorts
+     */
+    public function findWithResorts(string $destinationId): ?Destination
+    {
+        return $this->createQueryBuilder('d')
+            ->leftJoin('d.resorts', 'r')
+            ->leftJoin('r.category', 'c')
+            ->leftJoin('r.amenities', 'a')
+            ->where('d.id = :destinationId')
+            ->setParameter('destinationId', $destinationId)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * Search destinations by text in name, city, country, or description
+     */
+    public function searchByText(string $searchTerm): array
+    {
+        return $this->createQueryBuilder('d')
+            ->where('d.name LIKE :searchTerm')
+            ->orWhere('d.city LIKE :searchTerm')
+            ->orWhere('d.country LIKE :searchTerm')
+            ->orWhere('d.description LIKE :searchTerm')
+            ->setParameter('searchTerm', '%' . $searchTerm . '%')
+            ->orderBy('d.popularityScore', 'DESC')
+            ->addOrderBy('d.name', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Get top destinations by popularity
+     */
+    public function findTopDestinations(int $limit = 20): array
+    {
+        return $this->createQueryBuilder('d')
+            ->orderBy('d.popularityScore', 'DESC')
+            ->addOrderBy('d.name', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
 }

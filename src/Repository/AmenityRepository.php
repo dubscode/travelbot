@@ -34,20 +34,6 @@ class AmenityRepository extends ServiceEntityRepository
         }
     }
 
-    /**
-     * Find similar amenities using vector similarity
-     */
-    public function findSimilarAmenities(array $queryVector, int $limit = 10): array
-    {
-        return $this->createQueryBuilder('a')
-            ->select('a', 'COSINE_SIMILARITY(a.embedding, :queryVector) AS similarity')
-            ->where('a.embedding IS NOT NULL')
-            ->setParameter('queryVector', $queryVector)
-            ->orderBy('similarity', 'DESC')
-            ->setMaxResults($limit)
-            ->getQuery()
-            ->getResult();
-    }
 
     /**
      * Find amenities by type

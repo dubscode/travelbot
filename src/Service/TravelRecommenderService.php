@@ -5,6 +5,7 @@ namespace App\Service;
 use App\Entity\Destination;
 use App\Entity\User;
 use App\Repository\DestinationRepository;
+use App\Service\AI\Providers\ClaudeService;
 use Psr\Log\LoggerInterface;
 
 class TravelRecommenderService

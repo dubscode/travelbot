@@ -98,6 +98,7 @@ docker-compose exec php composer <command>
 - **[Infrastructure](./docs/infrastructure/README.md)** - AWS deployment with CDK
 - **[Operations](./docs/operations/README.md)** - Monitoring and troubleshooting
 - **[Features](./docs/features/README.md)** - Detailed feature documentation
+- **[Vectors](./docs/pgvector-ai/README.md)** - Vector search & AI powered seeding
 
 ## 🔗 Live Demo
 
