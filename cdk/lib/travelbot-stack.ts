@@ -6,6 +6,8 @@ import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import { Construct } from 'constructs';
 
 export class TravelbotStack extends cdk.Stack {
@@ -147,7 +149,11 @@ export class TravelbotStack extends cdk.Stack {
       }),
       environment: {
         APP_ENV: 'prod',
+        APP_DEBUG: '0',
         AWS_REGION: this.region,
+        MESSENGER_TRANSPORT_DSN: 'doctrine://default?auto_setup=0',
+        MAILER_DSN: 'null://null',
+        TRUSTED_PROXIES: 'REMOTE_ADDR',
       },
       secrets: {
         DATABASE_URL: ecs.Secret.fromSecretsManager(dbSecret, 'database_url'),
@@ -269,10 +275,36 @@ export class TravelbotStack extends cdk.Stack {
       scaleOutCooldown: cdk.Duration.seconds(300),
     });
 
+
+    // CloudFront Distribution
+    const distribution = new cloudfront.Distribution(this, 'TravelbotDistribution', {
+      defaultBehavior: {
+        origin: new origins.LoadBalancerV2Origin(alb, {
+          protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
+          httpPort: 80,
+        }),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+        cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
+        cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+        originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER,
+        compress: true,
+      },
+      httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
+      minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
+      enableLogging: false,
+      comment: 'TravelBot CloudFront Distribution',
+    });
+
     // Outputs
     new cdk.CfnOutput(this, 'LoadBalancerURL', {
       value: `http://${alb.loadBalancerDnsName}`,
-      description: 'URL of the load balancer',
+      description: 'URL of the load balancer (internal)',
+    });
+
+    new cdk.CfnOutput(this, 'CloudFrontURL', {
+      value: `https://${distribution.distributionDomainName}`,
+      description: 'CloudFront distribution URL (use this for HTTPS access)',
     });
 
     new cdk.CfnOutput(this, 'ECRRepositoryURI', {

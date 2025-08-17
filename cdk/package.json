@@ -8,9 +8,9 @@
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk",
-    "deploy": "cdk deploy",
-    "diff": "cdk diff",
-    "synth": "cdk synth"
+    "deploy": "cdk deploy --profile anny-prod",
+    "diff": "cdk diff --profile anny-prod",
+    "synth": "cdk synth --profile anny-prod"
   },
   "devDependencies": {
     "@types/jest": "^29.5.5",

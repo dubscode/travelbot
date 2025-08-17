@@ -1,0 +1,21 @@
+framework:
+    # Trust CloudFront and ALB proxy headers
+    trusted_proxies: '%env(TRUSTED_PROXIES)%'
+    
+    # Trust these headers from CloudFront/ALB
+    trusted_headers:
+        - 'x-forwarded-for'
+        - 'x-forwarded-host'
+        - 'x-forwarded-proto'
+        - 'x-forwarded-port'
+        - 'cloudfront-forwarded-proto'
+    
+    # Force HTTPS in production and trust proxy headers
+    router:
+        strict_requirements: true
+    
+    # Session configuration for stateless CSRF protection
+    session:
+        handler_id: null
+        cookie_secure: auto
+        cookie_samesite: lax

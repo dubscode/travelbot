@@ -21,6 +21,9 @@
     "license": "UNLICENSED",
     "private": true,
     "scripts": {
+        "cdk:deploy": "cd cdk && npm run deploy",
+        "cdk:diff": "cd cdk && npm run diff",
+        "cdk:synth": "cd cdk && npm run synth",
         "dev-server": "encore dev-server",
         "dev": "encore dev",
         "watch": "encore dev --watch",
