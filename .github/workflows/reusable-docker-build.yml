@@ -220,21 +220,6 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
-      - name: 🔍 Docker Scout security analysis
-        if: inputs.security_scan && inputs.push_image
-        uses: docker/scout-action@v1
-        with:
-          command: cves,recommendations
-          image: ${{ steps.meta.outputs.image_uri }}
-          summary: true
-          format: sarif
-          output: scout-results.sarif
-
-      - name: 📤 Upload Docker Scout results
-        if: inputs.security_scan && inputs.push_image && always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: 'scout-results.sarif'
 
       - name: 📤 Upload build artifacts
         if: always()
@@ -244,7 +229,6 @@ jobs:
           path: |
             image-details.json
             trivy-results.sarif
-            scout-results.sarif
           retention-days: 7
 
       - name: 📝 Build summary
