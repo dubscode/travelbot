@@ -134,6 +134,9 @@ export class ChatStreaming {
         this.eventSource.onerror = () => {
             this.handleFallback();
         };
+        
+        // Add timeout protection for EventSource
+        this.setupEventSourceTimeout();
     }
 
     /**
@@ -148,13 +151,15 @@ export class ChatStreaming {
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
         
-        // Convert newlines to <br> tags (matches Twig's nl2br filter)
-        let formatted = escaped.replace(/\n/g, '<br>');
+        let formatted = escaped;
         
-        // Headers - process before other formatting
-        formatted = formatted.replace(/^### (.*?)(<br>|$)/gm, '<h3 style="font-size: 1.25rem; font-weight: bold; margin: 0.5rem 0;">$1</h3>$2');
-        formatted = formatted.replace(/^## (.*?)(<br>|$)/gm, '<h2 style="font-size: 1.5rem; font-weight: bold; margin: 0.75rem 0;">$1</h2>$2');
-        formatted = formatted.replace(/^# (.*?)(<br>|$)/gm, '<h1 style="font-size: 1.75rem; font-weight: bold; margin: 1rem 0;">$1</h1>$2');
+        // Headers - process BEFORE converting newlines to <br>
+        formatted = formatted.replace(/^### (.*?)$/gm, '<h3 style="font-size: 1.25rem; font-weight: bold; margin: 0.5rem 0;">$1</h3>');
+        formatted = formatted.replace(/^## (.*?)$/gm, '<h2 style="font-size: 1.5rem; font-weight: bold; margin: 0.75rem 0;">$1</h2>');
+        formatted = formatted.replace(/^# (.*?)$/gm, '<h1 style="font-size: 1.75rem; font-weight: bold; margin: 1rem 0;">$1</h1>');
+        
+        // Convert newlines to <br> tags (matches Twig's nl2br filter)
+        formatted = formatted.replace(/\n/g, '<br>');
         
         // Bold: **text** -> <strong>text</strong>
         formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
@@ -231,6 +236,9 @@ export class ChatStreaming {
      * Handle completion of streaming
      */
     handleComplete() {
+        // Clear timeout
+        this.clearEventSourceTimeout();
+        
         // Remove cursor
         const cursor = document.getElementById('cursor');
         if (cursor) {
@@ -259,6 +267,9 @@ export class ChatStreaming {
      * Handle streaming error
      */
     handleError() {
+        // Clear timeout
+        this.clearEventSourceTimeout();
+        
         // Remove streaming elements
         const streamingMessage = document.getElementById('streaming-message');
         if (streamingMessage) {
@@ -283,6 +294,9 @@ export class ChatStreaming {
      * Handle fallback when EventSource fails
      */
     handleFallback() {
+        // Clear timeout
+        this.clearEventSourceTimeout();
+        
         this.eventSource.close();
         
         // Fallback to non-streaming approach
@@ -343,13 +357,36 @@ export class ChatStreaming {
     }
 
     /**
+     * Setup timeout protection for EventSource
+     */
+    setupEventSourceTimeout() {
+        // Set a timeout to handle cases where EventSource hangs
+        this.eventSourceTimeout = setTimeout(() => {
+            if (this.eventSource && this.eventSource.readyState !== EventSource.CLOSED) {
+                console.warn('EventSource timeout, falling back to regular request');
+                this.handleFallback();
+            }
+        }, 30000); // 30 second timeout
+    }
+
+    /**
+     * Clear EventSource timeout
+     */
+    clearEventSourceTimeout() {
+        if (this.eventSourceTimeout) {
+            clearTimeout(this.eventSourceTimeout);
+            this.eventSourceTimeout = null;
+        }
+    }
+
+    /**
      * Re-enable form
      */
     enableForm() {
         const btn = document.getElementById('send-btn');
         if (btn) {
             btn.disabled = false;
-            btn.textContent = 'Send 📨';
+            btn.textContent = 'Send ✈️';
         }
     }
 

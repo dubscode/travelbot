@@ -2,17 +2,29 @@
 
 namespace App\Service;
 
+use App\Service\Trait\ArrayNormalizerTrait;
 use App\Entity\Destination;
 use App\Entity\User;
 use App\Repository\DestinationRepository;
 use App\Service\AI\Providers\ClaudeService;
+use App\Service\TravelQueryAnalyzer;
+use App\Service\VectorSearchService;
+use App\Service\SearchResultRanker;
+use App\Service\RAGContextBuilder;
+use App\Service\TravelPreferenceTracker;
 use Psr\Log\LoggerInterface;
 
 class TravelRecommenderService
 {
+    use ArrayNormalizerTrait;
     public function __construct(
         private ClaudeService $claudeService,
         private DestinationRepository $destinationRepository,
+        private TravelQueryAnalyzer $queryAnalyzer,
+        private VectorSearchService $vectorSearchService,
+        private SearchResultRanker $resultRanker,
+        private RAGContextBuilder $contextBuilder,
+        private TravelPreferenceTracker $preferenceTracker,
         private LoggerInterface $logger
     ) {}
 
@@ -22,13 +34,31 @@ class TravelRecommenderService
         array $previousMessages = [],
         bool $preferFastResponse = false
     ): array {
-        // Get relevant destinations from database
-        $destinations = $this->getRelevantDestinations($userMessage);
+        // Analyze user query to extract structured information
+        $queryAnalysis = $this->queryAnalyzer->analyzeQuery($userMessage);
         
-        // Build context-aware messages
-        $messages = $this->buildMessages($userMessage, $destinations, $user, $previousMessages);
+        // Track user preferences from the query
+        if ($user) {
+            $this->preferenceTracker->trackUserPreferences($user, $queryAnalysis);
+        }
         
-        return $this->claudeService->generateResponse($messages, $preferFastResponse);
+        // Perform multi-stage vector search
+        $searchResults = $this->performRAGSearch($queryAnalysis, $user);
+        
+        // Build RAG context from search results
+        $ragContext = $this->contextBuilder->buildRAGContext($searchResults, $queryAnalysis, $user);
+        
+        // Build context-aware messages with RAG context
+        $messages = $this->buildRAGMessages($userMessage, $ragContext, $queryAnalysis, $user, $previousMessages);
+        
+        $response = $this->claudeService->generateResponse($messages, $preferFastResponse);
+        
+        // Track search results for preference learning
+        if ($user && !empty($searchResults)) {
+            $this->preferenceTracker->trackUserPreferences($user, $queryAnalysis, $searchResults);
+        }
+        
+        return $response;
     }
 
     public function streamRecommendation(
@@ -37,30 +67,45 @@ class TravelRecommenderService
         array $previousMessages = [],
         bool $preferFastResponse = false
     ): \Generator {
-        // Get relevant destinations from database
-        $destinations = $this->getRelevantDestinations($userMessage);
+        // Analyze user query to extract structured information
+        $queryAnalysis = $this->queryAnalyzer->analyzeQuery($userMessage);
         
-        // Build context-aware messages
-        $messages = $this->buildMessages($userMessage, $destinations, $user, $previousMessages);
+        // Track user preferences from the query
+        if ($user) {
+            $this->preferenceTracker->trackUserPreferences($user, $queryAnalysis);
+        }
+        
+        // Perform multi-stage vector search
+        $searchResults = $this->performRAGSearch($queryAnalysis, $user);
+        
+        // Build RAG context from search results
+        $ragContext = $this->contextBuilder->buildRAGContext($searchResults, $queryAnalysis, $user);
+        
+        // Build context-aware messages with RAG context
+        $messages = $this->buildRAGMessages($userMessage, $ragContext, $queryAnalysis, $user, $previousMessages);
         
         foreach ($this->claudeService->streamResponse($messages, $preferFastResponse) as $chunk) {
             yield $chunk;
         }
+        
+        // Track search results for preference learning (after streaming)
+        if ($user && !empty($searchResults)) {
+            $this->preferenceTracker->trackUserPreferences($user, $queryAnalysis, $searchResults);
+        }
     }
 
-    private function buildMessages(
+    private function buildRAGMessages(
         string $userMessage,
-        array $destinations,
+        string $ragContext,
+        array $queryAnalysis,
         ?User $user = null,
         array $previousMessages = []
     ): array {
-        $systemPrompt = $this->buildSystemPrompt($destinations, $user);
-        
         $messages = [
             [
                 'role' => 'user',
                 'content' => [
-                    ['text' => $systemPrompt]
+                    ['text' => $ragContext]
                 ]
             ]
         ];
@@ -75,11 +120,12 @@ class TravelRecommenderService
             ];
         }
 
-        // Add current user message
+        // Add current user message with query analysis context
+        $enhancedUserMessage = $this->enhanceUserMessage($userMessage, $queryAnalysis);
         $messages[] = [
             'role' => 'user',
             'content' => [
-                ['text' => $userMessage]
+                ['text' => $enhancedUserMessage]
             ]
         ];
 
@@ -169,20 +215,68 @@ class TravelRecommenderService
         return $text;
     }
 
-    private function getRelevantDestinations(string $userMessage): array
+    private function performRAGSearch(array $queryAnalysis, ?User $user = null): array
     {
-        // For now, get all destinations. In a more advanced version, we could:
-        // - Use vector search for semantic similarity
-        // - Filter by keywords or mentioned locations
-        // - Use user preferences to pre-filter
-        
-        $allDestinations = $this->destinationRepository->findBy([], ['popularityScore' => 'DESC'], 10);
-        
-        // TODO: Implement smarter filtering based on message content
-        // This could include keyword matching, budget filtering, etc.
-        // The $userMessage parameter is currently unused but kept for future implementation
-        
-        return $allDestinations;
+        try {
+            // Extract search terms from query analysis
+            $searchTerms = $this->queryAnalyzer->extractSearchTerms($queryAnalysis);
+            
+            // Perform parallel vector searches
+            $searchResults = [
+                'destinations' => [],
+                'resorts' => [],
+                'amenities' => []
+            ];
+            
+            // Search destinations
+            if (!empty($searchTerms['destination'])) {
+                $searchResults['destinations'] = $this->vectorSearchService->searchSimilarDestinations(
+                    $searchTerms['destination'], 
+                    12, // Get more for better ranking
+                    0.6  // Lower threshold for broader results
+                );
+            }
+            
+            // Search resorts
+            if (!empty($searchTerms['accommodation'])) {
+                $searchResults['resorts'] = $this->vectorSearchService->searchSimilarResorts(
+                    $searchTerms['accommodation'],
+                    20,
+                    0.6
+                );
+            }
+            
+            // Search amenities
+            if (!empty($searchTerms['amenities'])) {
+                $searchResults['amenities'] = $this->vectorSearchService->searchSimilarAmenities(
+                    $searchTerms['amenities'],
+                    15,
+                    0.6
+                );
+            }
+            
+            // If no specific search terms, do a broader search
+            if (empty($searchResults['destinations']) && empty($searchResults['resorts'])) {
+                $searchResults = $this->performBroadSearch($queryAnalysis);
+            }
+            
+            // Rank the results using multi-criteria ranking
+            $rankedResults = $this->resultRanker->rankSearchResults(
+                $searchResults,
+                $queryAnalysis,
+                $user
+            );
+            
+            return $rankedResults;
+            
+        } catch (\Exception $e) {
+            $this->logger->error('RAG search failed, falling back to basic search', [
+                'error' => $e->getMessage(),
+                'queryAnalysis' => $queryAnalysis
+            ]);
+            
+            return $this->getFallbackResults();
+        }
     }
 
     public function shouldUseFastModel(string $userMessage): bool
@@ -244,5 +338,207 @@ class TravelRecommenderService
                 ? substr($userMessage, 0, 47) . '...'
                 : $userMessage;
         }
+    }
+
+    private function enhanceUserMessage(string $userMessage, array $queryAnalysis): string
+    {
+        $enhancedMessage = $userMessage;
+        
+        // Add follow-up questions if needed
+        if ($this->queryAnalyzer->shouldAskFollowUpQuestions($queryAnalysis)) {
+            $followUpQuestions = $this->queryAnalyzer->generateFollowUpQuestions($queryAnalysis);
+            if (!empty($followUpQuestions)) {
+                $enhancedMessage .= "\n\nTo provide better recommendations, could you help with these details:\n";
+                foreach ($followUpQuestions as $question) {
+                    $enhancedMessage .= "- " . $question . "\n";
+                }
+            }
+        }
+        
+        return $enhancedMessage;
+    }
+
+    private function performBroadSearch(array $queryAnalysis): array
+    {
+        // Fallback search when no specific terms are extracted
+        $broadSearchTerm = "travel destination";
+        
+        // Enhance search term based on available analysis
+        if (!empty($queryAnalysis['destination_preferences']['destination_type'])) {
+            $broadSearchTerm = implode(' ', $queryAnalysis['destination_preferences']['destination_type']);
+        } elseif (!empty($queryAnalysis['activity_preferences'])) {
+            $broadSearchTerm = implode(' ', $queryAnalysis['activity_preferences']) . " destination";
+        }
+        
+        return [
+            'destinations' => $this->vectorSearchService->searchSimilarDestinations($broadSearchTerm, 10, 0.5),
+            'resorts' => $this->vectorSearchService->searchSimilarResorts($broadSearchTerm, 15, 0.5),
+            'amenities' => $this->vectorSearchService->searchSimilarAmenities($broadSearchTerm, 10, 0.5)
+        ];
+    }
+    
+    private function getFallbackResults(): array
+    {
+        // Simple fallback to popular destinations when vector search fails
+        try {
+            $popularDestinations = $this->destinationRepository->findBy(
+                [], 
+                ['popularityScore' => 'DESC'], 
+                8
+            );
+            
+            $fallbackResults = [
+                'destinations' => [],
+                'resorts' => [],
+                'amenities' => []
+            ];
+            
+            foreach ($popularDestinations as $destination) {
+                $fallbackResults['destinations'][] = [
+                    'id' => $destination->getId(),
+                    'name' => $destination->getName(),
+                    'country' => $destination->getCountry(),
+                    'city' => $destination->getCity(),
+                    'description' => $destination->getDescription(),
+                    'popularity_score' => $destination->getPopularityScore(),
+                    'similarity' => 0.5 // Default similarity for fallback
+                ];
+            }
+            
+            return $fallbackResults;
+            
+        } catch (\Exception $e) {
+            $this->logger->error('Fallback results also failed', ['error' => $e->getMessage()]);
+            return ['destinations' => [], 'resorts' => [], 'amenities' => []];
+        }
+    }
+    
+    public function getQueryAnalysis(string $userMessage): array
+    {
+        return $this->queryAnalyzer->analyzeQuery($userMessage);
+    }
+    
+    public function getPersonalizedRecommendations(User $user, int $limit = 5): array
+    {
+        try {
+            $userPreferences = $this->preferenceTracker->getPersonalizedSearchWeights($user);
+            
+            // Build a search based on user's historical preferences
+            $searchTerms = [];
+            
+            if (!empty($userPreferences['destination_types'])) {
+                $topDestinationTypes = array_keys(array_slice($userPreferences['destination_types'], 0, 2, true));
+                $searchTerms[] = implode(' ', $topDestinationTypes);
+            }
+            
+            if (!empty($userPreferences['activities'])) {
+                $topActivities = array_keys(array_slice($userPreferences['activities'], 0, 2, true));
+                $searchTerms[] = implode(' ', $topActivities);
+            }
+            
+            if (empty($searchTerms)) {
+                return $this->getFallbackResults();
+            }
+            
+            $searchTerm = implode(' ', $searchTerms);
+            $destinations = $this->vectorSearchService->searchSimilarDestinations($searchTerm, $limit, 0.6);
+            
+            return [
+                'destinations' => $destinations,
+                'based_on' => 'user_preferences',
+                'search_term' => $searchTerm
+            ];
+            
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to get personalized recommendations', [
+                'userId' => $user->getId(),
+                'error' => $e->getMessage()
+            ]);
+            
+            return $this->getFallbackResults();
+        }
+    }
+    
+    public function trackUserInteraction(User $user, string $interactionType, array $data = []): void
+    {
+        $this->preferenceTracker->trackUserInteraction($user, $interactionType, $data);
+    }
+
+    public function explainRecommendation(array $searchResults, array $queryAnalysis): array
+    {
+        $explanation = [
+            'query_understanding' => [
+                'detected_preferences' => $this->extractDetectedPreferences($queryAnalysis),
+                'search_strategy' => $this->getSearchStrategy($queryAnalysis)
+            ],
+            'search_process' => [
+                'destinations_found' => count($searchResults['destinations'] ?? []),
+                'resorts_found' => count($searchResults['resorts'] ?? []),
+                'amenities_considered' => count($searchResults['amenities'] ?? [])
+            ],
+            'ranking_factors' => [
+                'semantic_similarity' => 'How well options match your query',
+                'user_preferences' => 'Based on your travel history',
+                'popularity' => 'General ratings and reviews',
+                'budget_alignment' => 'Fits within your budget constraints'
+            ]
+        ];
+        
+        // Add specific explanations for top results
+        if (!empty($searchResults['destinations'])) {
+            $topDestination = $searchResults['destinations'][0];
+            if (isset($topDestination['ranking_scores'])) {
+                $explanation['top_recommendation'] = $this->resultRanker->explainRanking($topDestination);
+            }
+        }
+        
+        return $explanation;
+    }
+    
+    private function extractDetectedPreferences(array $queryAnalysis): array
+    {
+        $detected = [];
+        
+        if (!empty($queryAnalysis['destination_preferences']['destination_type'])) {
+            $detected['destination_type'] = $queryAnalysis['destination_preferences']['destination_type'];
+        }
+        
+        if (!empty($queryAnalysis['budget']['budget_level'])) {
+            $detected['budget_level'] = $this->arrayToString($queryAnalysis['budget']['budget_level']);
+        }
+        
+        if (!empty($queryAnalysis['activity_preferences'])) {
+            $detected['activities'] = $queryAnalysis['activity_preferences'];
+        }
+        
+        if (!empty($queryAnalysis['traveler_info']['traveler_types'])) {
+            $detected['traveler_type'] = $queryAnalysis['traveler_info']['traveler_types'];
+        }
+        
+        return $detected;
+    }
+    
+    private function getSearchStrategy(array $queryAnalysis): string
+    {
+        if (!empty($queryAnalysis['destination_preferences']['specific_locations'])) {
+            return 'specific_location_search';
+        }
+        
+        if (!empty($queryAnalysis['activity_preferences'])) {
+            return 'activity_based_search';
+        }
+        
+        if (!empty($queryAnalysis['destination_preferences']['destination_type'])) {
+            return 'destination_type_search';
+        }
+        
+        return 'broad_semantic_search';
+    }
+
+    // Keep legacy method for backward compatibility during transition
+    private function getRelevantDestinations(string $userMessage): array
+    {
+        $this->logger->warning('Using deprecated getRelevantDestinations method');
+        return $this->getFallbackResults()['destinations'];
     }
 }

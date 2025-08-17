@@ -6,6 +6,27 @@ Welcome to the comprehensive documentation for TravelBot - an AI-powered travel 
 
 This documentation provides detailed guidance for developers, DevOps engineers, and stakeholders working with the TravelBot application. Each section covers different aspects of the system, from high-level architecture to operational procedures.
 
+## 🧠 Travel Recommendation Engine
+
+### [🧠 Travel Recommendation RAG System](./travel-recommendation-rag/README.md)
+**The heart of TravelBot** - Comprehensive documentation of the intelligent recommendation engine.
+
+**What you'll find:**
+- Complete RAG system architecture and design patterns
+- Multi-stage query processing and semantic vector search
+- Multi-criteria ranking algorithm with personalization
+- Progressive information gathering and conversation intelligence
+- Visual diagrams and flow charts of all processes
+- Complete API reference with examples
+
+**Key Topics:**
+- TravelQueryAnalyzer for NLP-powered query understanding
+- VectorSearchService with pgvector semantic similarity
+- SearchResultRanker with configurable multi-criteria scoring
+- RAGContextBuilder for intelligent context aggregation
+- TravelPreferenceTracker for personalization and learning
+- Conversation flow state management and smart suggestions
+
 ## 🏗️ Architecture & Design
 
 ### [Architecture Overview](./architecture/README.md)
@@ -121,19 +142,27 @@ Production operations, monitoring, troubleshooting, and maintenance procedures.
 ## 🚀 Quick Navigation
 
 ### For New Developers
-1. Start with [Architecture Overview](./architecture/README.md) to understand the system
-2. Follow [Development Guide](./development/README.md) for local setup
-3. Review [Feature Documentation](./features/README.md) to understand capabilities
+1. Start with [🧠 Travel Recommendation RAG](./travel-recommendation-rag/README.md) to understand the core system
+2. Follow [Architecture Overview](./architecture/README.md) to understand the overall system
+3. Review [Development Guide](./development/README.md) for local setup
+4. Check [Feature Documentation](./features/README.md) to understand capabilities
 
 ### For DevOps Engineers
 1. Review [Infrastructure Documentation](./infrastructure/README.md) for AWS setup
 2. Study [Operations Guide](./operations/README.md) for production procedures
 3. Check [Development Guide](./development/README.md) for CI/CD integration
+4. Understand [Travel Recommendation RAG](./travel-recommendation-rag/README.md) for system optimization
 
 ### For Stakeholders
-1. Start with [Feature Documentation](./features/README.md) for capabilities overview
-2. Review [Architecture Overview](./architecture/README.md) for technical foundation
-3. Check [Operations Guide](./operations/README.md) for operational maturity
+1. Start with [🧠 Travel Recommendation RAG](./travel-recommendation-rag/README.md) for core innovation overview
+2. Review [Feature Documentation](./features/README.md) for capabilities overview
+3. Check [Architecture Overview](./architecture/README.md) for technical foundation
+4. Study [Operations Guide](./operations/README.md) for operational maturity
+
+### For AI/ML Engineers
+1. Deep dive into [🧠 Travel Recommendation RAG](./travel-recommendation-rag/README.md) for the complete system
+2. Review [Vector Search & AI Documentation](./pgvector-ai/README.md) for implementation details
+3. Check [Architecture Overview](./architecture/README.md) for integration patterns
 
 ## 🏷️ Technology Stack Summary
 
@@ -141,7 +170,7 @@ Production operations, monitoring, troubleshooting, and maintenance procedures.
 |-------|-------------|
 | **Frontend** | Twig Templates, Hotwire Turbo, Tailwind CSS 4, Vanilla JavaScript |
 | **Backend** | Symfony 7.3, PHP 8.3, Doctrine ORM, Server-Sent Events |
-| **AI Integration** | OpenAI GPT, AWS Bedrock Titan V2, Custom Travel Prompting, Real-time Streaming |
+| **AI Integration** | Claude AI (Anthropic), AWS Bedrock, Custom Travel Prompting, Real-time Streaming |
 | **Vector Search** | PostgreSQL pgvector, HNSW Indexes, 1024-dim Embeddings, Cosine Distance |
 | **Database** | PostgreSQL 17, Doctrine Migrations, Connection Pooling, Custom Platform Middleware |
 | **Async Processing** | Symfony Messenger, Database Transport, Retry Strategies, Queue Management |
@@ -153,13 +182,17 @@ Production operations, monitoring, troubleshooting, and maintenance procedures.
 ## 📋 System Capabilities
 
 ### Core Features
-- ✅ **Real-time AI Chat**: Streaming conversations with travel expertise
-- ✅ **Semantic Vector Search**: AI-powered similarity search across travel entities
-- ✅ **Travel Recommendations**: Personalized destination and itinerary suggestions
-- ✅ **Intelligent Data Seeding**: AI-generated realistic travel datasets
-- ✅ **User Management**: Secure authentication and session management
-- ✅ **Multi-Conversations**: Organized travel planning across multiple trips
-- ✅ **Responsive Design**: Mobile-first interface with accessibility support
+- ✅ **🧠 Intelligent RAG Recommendation Engine**: Multi-stage retrieval-augmented generation system
+- ✅ **🔍 Semantic Vector Search**: Multi-entity AI-powered similarity search across destinations, resorts, and amenities
+- ✅ **🎯 Smart Query Analysis**: NLP-powered extraction of travel parameters and intent understanding
+- ✅ **📊 Multi-Criteria Ranking**: Intelligent scoring with personalization and preference learning
+- ✅ **💬 Conversation Intelligence**: Progressive information gathering with context-aware responses
+- ✅ **👤 Personalization Engine**: Behavioral learning and preference tracking across conversations
+- ✅ **⚡ Real-time AI Chat**: Streaming conversations with travel expertise and context
+- ✅ **🌍 Travel Recommendations**: Sophisticated destination and itinerary suggestions
+- ✅ **🤖 Intelligent Data Seeding**: AI-generated realistic travel datasets with relationships
+- ✅ **🔐 User Management**: Secure authentication and conversation history
+- ✅ **📱 Responsive Design**: Mobile-first interface with accessibility support
 
 ### Technical Features
 - ✅ **Microservices Architecture**: Modular, scalable design

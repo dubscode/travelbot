@@ -42,6 +42,19 @@ open http://localhost:8000
 - 📱 **Responsive Design** - Mobile-first interface with accessibility support
 - ⚡ **Real-time Streaming** - Server-Sent Events for live AI responses
 
+## 🧠 Intelligent Travel Recommendation Engine
+
+**The heart of TravelBot** - A sophisticated RAG (Retrieval-Augmented Generation) system that delivers personalized travel recommendations through:
+
+- **🔍 Semantic Vector Search** - Multi-stage search across destinations, resorts, and amenities using pgvector
+- **🎯 Smart Query Analysis** - NLP-powered extraction of dates, budget, preferences, and requirements
+- **📊 Multi-Criteria Ranking** - Intelligent scoring based on similarity, user preferences, popularity, and constraints
+- **🔄 Progressive Information Gathering** - Dynamic follow-up questions to refine recommendations
+- **👤 Personalization Engine** - Learns from interactions to improve future recommendations
+- **🌐 Context-Aware Responses** - Temporal, seasonal, and conversation-stage awareness
+
+📚 **[Complete RAG Documentation →](./docs/travel-recommendation-rag/README.md)**
+
 ## 🏗️ Architecture
 
 **Backend:** Symfony 7.3 with PHP 8.3  
@@ -93,6 +106,7 @@ docker-compose exec php composer <command>
 
 ## 📖 Documentation
 
+- **[🧠 Travel Recommendation RAG](./docs/travel-recommendation-rag/README.md)** - Core recommendation engine documentation
 - **[Architecture Overview](./docs/architecture/README.md)** - System design and components
 - **[Development Guide](./docs/development/README.md)** - Local setup and API documentation
 - **[Infrastructure](./docs/infrastructure/README.md)** - AWS deployment with CDK
