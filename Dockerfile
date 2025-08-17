@@ -212,8 +212,10 @@ RUN mkdir -p var/cache var/log \
 
 # Warm up Symfony cache for production (with dummy DATABASE_URL for build)
 RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" \
+    TRUSTED_PROXIES="REMOTE_ADDR" \
     php bin/console cache:clear --env=prod --no-debug \
     && DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" \
+    TRUSTED_PROXIES="REMOTE_ADDR" \
     php bin/console cache:warmup --env=prod --no-debug
 
 # Configure nginx

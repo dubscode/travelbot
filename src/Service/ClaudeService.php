@@ -17,16 +17,28 @@ class ClaudeService
         private string $haikuModel,
         private LoggerInterface $logger
     ) {
-        // Use SSO credential provider for proper SSO profile support
-        $profileName = getenv('AWS_PROFILE') ?: 'anny-prod';
+        // Detect if running in production/ECS environment
+        $isProduction = getenv('APP_ENV') === 'prod' || 
+                        getenv('AWS_EXECUTION_ENV') === 'AWS_ECS_FARGATE' ||
+                        isset($_SERVER['AWS_EXECUTION_ENV']);
         
-        $credentialProvider = CredentialProvider::sso($profileName);
-        
-        $this->bedrockClient = new BedrockRuntimeClient([
-            'region' => $this->region,
-            'version' => 'latest',
-            'credentials' => $credentialProvider,
-        ]);
+        if ($isProduction) {
+            // Use default credential chain (IAM role in ECS)
+            $this->bedrockClient = new BedrockRuntimeClient([
+                'region' => $this->region,
+                'version' => 'latest',
+            ]);
+        } else {
+            // Use SSO for local development
+            $profileName = getenv('AWS_PROFILE') ?: 'anny-prod';
+            $credentialProvider = CredentialProvider::sso($profileName);
+            
+            $this->bedrockClient = new BedrockRuntimeClient([
+                'region' => $this->region,
+                'version' => 'latest',
+                'credentials' => $credentialProvider,
+            ]);
+        }
     }
 
     public function generateResponse(

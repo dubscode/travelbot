@@ -8,7 +8,6 @@ framework:
         - 'x-forwarded-host'
         - 'x-forwarded-proto'
         - 'x-forwarded-port'
-        - 'cloudfront-forwarded-proto'
     
     # Force HTTPS in production and trust proxy headers
     router:

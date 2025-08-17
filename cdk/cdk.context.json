@@ -1,5 +1,15 @@
 {
   "acknowledged-issue-numbers": [
     34892
-  ]
+  ],
+  "availability-zones:account=471112633208:region=us-west-2": [
+    "us-west-2a",
+    "us-west-2b",
+    "us-west-2c",
+    "us-west-2d"
+  ],
+  "hosted-zone:account=471112633208:domainName=travelbot.tech:region=us-west-2": {
+    "Id": "/hostedzone/Z084567715SUVPQN097XV",
+    "Name": "travelbot.tech."
+  }
 }
