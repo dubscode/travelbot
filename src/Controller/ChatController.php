@@ -556,4 +556,339 @@ class ChatController extends AbstractController
             }
         }
     }
+
+    #[Route('/query-analysis', name: 'app_chat_query_analysis', methods: ['POST'])]
+    public function analyzeQuery(Request $request): JsonResponse
+    {
+        /** @var \App\Entity\User $user */
+        $user = $this->getUser();
+        $message = $request->request->get('message');
+        
+        if (empty(trim($message))) {
+            return new JsonResponse(['error' => 'Message cannot be empty'], 400);
+        }
+        
+        try {
+            $queryAnalysis = $this->travelRecommender->getQueryAnalysis($message);
+            
+            return new JsonResponse([
+                'success' => true,
+                'analysis' => $queryAnalysis,
+                'suggestions' => $this->generateQuickSuggestions($queryAnalysis)
+            ]);
+            
+        } catch (\Exception $e) {
+            $this->logger->error('Query analysis failed', [
+                'message' => $message,
+                'error' => $e->getMessage()
+            ]);
+            
+            return new JsonResponse([
+                'error' => 'Failed to analyze query'
+            ], 500);
+        }
+    }
+
+    #[Route('/personalized-recommendations', name: 'app_chat_personalized_recommendations', methods: ['GET'])]
+    public function getPersonalizedRecommendations(Request $request): JsonResponse
+    {
+        /** @var \App\Entity\User $user */
+        $user = $this->getUser();
+        $limit = min($request->query->getInt('limit', 5), 10); // Max 10 recommendations
+        
+        try {
+            $recommendations = $this->travelRecommender->getPersonalizedRecommendations($user, $limit);
+            
+            return new JsonResponse([
+                'success' => true,
+                'recommendations' => $recommendations,
+                'user_preferences_available' => !empty($user->getInterests()) || !empty($user->getClimatePreferences())
+            ]);
+            
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to get personalized recommendations', [
+                'userId' => $user->getId(),
+                'error' => $e->getMessage()
+            ]);
+            
+            return new JsonResponse([
+                'error' => 'Failed to get personalized recommendations'
+            ], 500);
+        }
+    }
+
+    #[Route('/track-interaction', name: 'app_chat_track_interaction', methods: ['POST'])]
+    public function trackInteraction(Request $request): JsonResponse
+    {
+        /** @var \App\Entity\User $user */
+        $user = $this->getUser();
+        
+        $interactionType = $request->request->get('type');
+        $data = $request->request->all('data');
+        
+        if (empty($interactionType)) {
+            return new JsonResponse(['error' => 'Interaction type is required'], 400);
+        }
+        
+        try {
+            $this->travelRecommender->trackUserInteraction($user, $interactionType, $data);
+            
+            return new JsonResponse([
+                'success' => true,
+                'message' => 'Interaction tracked successfully'
+            ]);
+            
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to track user interaction', [
+                'userId' => $user->getId(),
+                'interactionType' => $interactionType,
+                'error' => $e->getMessage()
+            ]);
+            
+            return new JsonResponse([
+                'error' => 'Failed to track interaction'
+            ], 500);
+        }
+    }
+
+    #[Route('/conversation-context/{conversationId}', name: 'app_chat_conversation_context', methods: ['GET'])]
+    public function getConversationContext(string $conversationId): JsonResponse
+    {
+        /** @var \App\Entity\User $user */
+        $user = $this->getUser();
+        
+        $conversation = $this->entityManager->getRepository(Conversation::class)->find($conversationId);
+        
+        if (!$conversation || $conversation->getUser() !== $user) {
+            throw $this->createAccessDeniedException();
+        }
+        
+        try {
+            // Get message history
+            $messageHistory = $this->buildMessageHistory($conversation);
+            
+            // Extract conversation patterns and preferences
+            $conversationPatterns = $this->extractConversationPatterns($messageHistory);
+            
+            // Get suggested follow-up questions based on conversation
+            $followUpSuggestions = $this->generateConversationFollowUps($messageHistory, $user);
+            
+            return new JsonResponse([
+                'success' => true,
+                'context' => [
+                    'message_count' => count($messageHistory),
+                    'patterns' => $conversationPatterns,
+                    'follow_up_suggestions' => $followUpSuggestions,
+                    'conversation_stage' => $this->determineConversationStage($messageHistory)
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to get conversation context', [
+                'conversationId' => $conversationId,
+                'error' => $e->getMessage()
+            ]);
+            
+            return new JsonResponse([
+                'error' => 'Failed to get conversation context'
+            ], 500);
+        }
+    }
+
+    #[Route('/smart-suggestions/{messageId}', name: 'app_chat_smart_suggestions', methods: ['GET'])]
+    public function getSmartSuggestions(string $messageId): JsonResponse
+    {
+        /** @var \App\Entity\User $user */
+        $user = $this->getUser();
+        
+        $message = $this->entityManager->getRepository(Message::class)->find($messageId);
+        
+        if (!$message || $message->getConversation()->getUser() !== $user) {
+            throw $this->createAccessDeniedException();
+        }
+        
+        try {
+            // Analyze the message to understand user intent
+            $queryAnalysis = $this->travelRecommender->getQueryAnalysis($message->getContent());
+            
+            // Generate contextual suggestions
+            $suggestions = $this->generateContextualSuggestions($queryAnalysis, $user);
+            
+            return new JsonResponse([
+                'success' => true,
+                'suggestions' => $suggestions,
+                'query_analysis' => $queryAnalysis
+            ]);
+            
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to get smart suggestions', [
+                'messageId' => $messageId,
+                'error' => $e->getMessage()
+            ]);
+            
+            return new JsonResponse([
+                'error' => 'Failed to get smart suggestions'
+            ], 500);
+        }
+    }
+
+    private function generateQuickSuggestions(array $queryAnalysis): array
+    {
+        $suggestions = [];
+        
+        // Suggest budget clarification
+        if (empty($queryAnalysis['budget']['budget_level']) && 
+            empty($queryAnalysis['budget']['max_per_day'])) {
+            $suggestions[] = [
+                'type' => 'budget',
+                'text' => 'What\'s your travel budget?',
+                'action' => 'clarify_budget'
+            ];
+        }
+        
+        // Suggest travel dates
+        if (empty($queryAnalysis['travel_dates']['start_date'])) {
+            $suggestions[] = [
+                'type' => 'dates',
+                'text' => 'When are you planning to travel?',
+                'action' => 'clarify_dates'
+            ];
+        }
+        
+        // Suggest destination type
+        if (empty($queryAnalysis['destination_preferences']['destination_type'])) {
+            $suggestions[] = [
+                'type' => 'destination_type',
+                'text' => 'Beach, city, or mountain destination?',
+                'action' => 'clarify_destination_type'
+            ];
+        }
+        
+        // Suggest group size
+        if (empty($queryAnalysis['traveler_info']['group_size'])) {
+            $suggestions[] = [
+                'type' => 'group_size',
+                'text' => 'How many people will be traveling?',
+                'action' => 'clarify_group_size'
+            ];
+        }
+        
+        return array_slice($suggestions, 0, 3); // Limit to 3 suggestions
+    }
+
+    private function extractConversationPatterns(array $messageHistory): array
+    {
+        $patterns = [
+            'mentioned_destinations' => [],
+            'mentioned_activities' => [],
+            'budget_references' => [],
+            'preference_indicators' => []
+        ];
+        
+        foreach ($messageHistory as $message) {
+            if ($message['role'] === 'user') {
+                $content = strtolower($message['content']);
+                
+                // Extract destination mentions
+                $destinations = ['paris', 'tokyo', 'bali', 'thailand', 'greece', 'italy', 'spain', 'japan'];
+                foreach ($destinations as $dest) {
+                    if (strpos($content, $dest) !== false) {
+                        $patterns['mentioned_destinations'][] = $dest;
+                    }
+                }
+                
+                // Extract activity mentions
+                $activities = ['beach', 'hiking', 'culture', 'nightlife', 'spa', 'adventure', 'food', 'relax'];
+                foreach ($activities as $activity) {
+                    if (strpos($content, $activity) !== false) {
+                        $patterns['mentioned_activities'][] = $activity;
+                    }
+                }
+                
+                // Extract budget indicators
+                if (preg_match('/\$\\d+|\\d+\\s*dollar|budget|cheap|expensive|luxury/', $content)) {
+                    $patterns['budget_references'][] = $content;
+                }
+            }
+        }
+        
+        // Remove duplicates
+        foreach ($patterns as $key => $values) {
+            $patterns[$key] = array_unique($values);
+        }
+        
+        return $patterns;
+    }
+
+    private function generateConversationFollowUps(array $messageHistory, $user): array
+    {
+        $followUps = [];
+        
+        // Check conversation length to determine appropriate follow-ups
+        $userMessageCount = count(array_filter($messageHistory, fn($msg) => $msg['role'] === 'user'));
+        
+        if ($userMessageCount < 3) {
+            // Early conversation - gather basic info
+            $followUps[] = "Would you like to share your preferred travel style?";
+            $followUps[] = "What's most important to you in a destination?";
+        } elseif ($userMessageCount < 6) {
+            // Mid conversation - refine preferences
+            $followUps[] = "Are there any specific amenities you're looking for?";
+            $followUps[] = "Would you like recommendations for similar destinations?";
+        } else {
+            // Later conversation - action-oriented
+            $followUps[] = "Would you like help with planning your itinerary?";
+            $followUps[] = "Shall I provide booking recommendations?";
+        }
+        
+        return array_slice($followUps, 0, 2);
+    }
+
+    private function determineConversationStage(array $messageHistory): string
+    {
+        $userMessageCount = count(array_filter($messageHistory, fn($msg) => $msg['role'] === 'user'));
+        
+        return match (true) {
+            $userMessageCount <= 1 => 'initial_inquiry',
+            $userMessageCount <= 3 => 'preference_gathering',
+            $userMessageCount <= 6 => 'recommendation_refinement',
+            default => 'action_planning'
+        };
+    }
+
+    private function generateContextualSuggestions(array $queryAnalysis, $user): array
+    {
+        $suggestions = [];
+        
+        // Generate suggestions based on query analysis
+        if (!empty($queryAnalysis['destination_preferences']['destination_type'])) {
+            $destType = $queryAnalysis['destination_preferences']['destination_type'][0];
+            $suggestions[] = [
+                'text' => "Show me more {$destType} destinations",
+                'action' => 'search_similar_destinations',
+                'params' => ['type' => $destType]
+            ];
+        }
+        
+        if (!empty($queryAnalysis['activity_preferences'])) {
+            $activity = $queryAnalysis['activity_preferences'][0];
+            $suggestions[] = [
+                'text' => "Find destinations great for {$activity}",
+                'action' => 'search_by_activity',
+                'params' => ['activity' => $activity]
+            ];
+        }
+        
+        // Add personalized suggestions based on user history
+        if ($user->getInterests()) {
+            $interest = $user->getInterests()[0];
+            $suggestions[] = [
+                'text' => "Recommendations based on your interest in {$interest}",
+                'action' => 'personalized_recommendations',
+                'params' => ['interest' => $interest]
+            ];
+        }
+        
+        return array_slice($suggestions, 0, 4);
+    }
 }

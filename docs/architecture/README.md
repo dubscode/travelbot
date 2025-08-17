@@ -19,7 +19,7 @@ graph TB
         H --> I[PostgreSQL Database]
         
         J[AI Integration] --> K[Streaming Service]
-        K --> L[OpenAI API]
+        K --> L[AWS Bedrock Claude API]
     end
     
     subgraph "Infrastructure"
@@ -53,7 +53,7 @@ graph TB
 - **Server-Sent Events (SSE)**: Real-time streaming for AI responses
 
 ### AI Integration
-- **OpenAI GPT**: Conversational AI for travel assistance
+- **Claude AI**: Conversational AI for travel assistance via AWS Bedrock
 - **Streaming API**: Real-time response delivery
 - **Custom Prompting**: Travel-specific AI behavior
 
@@ -126,7 +126,7 @@ Controller → Service → Repository → Doctrine ORM → PostgreSQL
 
 ### 3. Real-time Communication
 ```
-Frontend JS → Server-Sent Events → Streaming Controller → AI Service → OpenAI API
+Frontend JS → Server-Sent Events → Streaming Controller → AI Service → AWS Bedrock Claude API
 ```
 
 ## Security Architecture

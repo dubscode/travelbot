@@ -161,9 +161,4 @@ class AIService
     //     return $this->novaService->generateImage($prompt, $options);
     // }
 
-    // TODO: Add OpenAI integration methods
-    // public function generateTextWithOpenAI(array $messages): array
-    // {
-    //     return $this->openAIService->generateResponse($messages);
-    // }
 }

@@ -110,7 +110,7 @@ const container = taskDefinition.addContainer('travelbot', {
     DATABASE_URL: databaseUrl,
   },
   secrets: {
-    OPENAI_API_KEY: ecs.Secret.fromSecretsManager(openaiSecret),
+    AWS_BEARER_TOKEN_BEDROCK: ecs.Secret.fromSecretsManager(bedrockSecret),
   },
 });
 ```
@@ -205,7 +205,7 @@ taskRole.addToPolicy(new iam.PolicyStatement({
   actions: [
     'secretsmanager:GetSecretValue',
   ],
-  resources: [openaiSecret.secretArn],
+  resources: [bedrockSecret.secretArn],
 }));
 ```
 

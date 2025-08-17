@@ -21,7 +21,10 @@ cp .env.example .env
 ```bash
 # Edit .env file with your settings
 DATABASE_URL="postgresql://app:password@localhost:5432/travelbot"
-OPENAI_API_KEY="your-openai-api-key"
+AWS_REGION="us-west-2"
+AWS_BEARER_TOKEN_BEDROCK="your-aws-bedrock-token"
+BEDROCK_CLAUDE_SONNET_MODEL="us.anthropic.claude-sonnet-4-20250514-v1:0"
+BEDROCK_CLAUDE_HAIKU_MODEL="us.anthropic.claude-3-5-haiku-20241022-v1:0"
 APP_ENV=dev
 APP_DEBUG=1
 ```

@@ -59,12 +59,55 @@ services:
     # Backward compatibility alias for existing ClaudeService references
     App\Service\ClaudeService: '@App\Service\AI\Providers\ClaudeService'
 
-    # Application Services
+    # RAG System Services
+    App\Service\TravelQueryAnalyzer:
+        arguments:
+            $claudeService: '@App\Service\AI\Providers\ClaudeService'
+            $logger: '@logger'
+        tags:
+            - { name: monolog.logger, channel: query_analyzer }
+
+    App\Service\VectorSearchService:
+        arguments:
+            $entityManager: '@doctrine.orm.entity_manager'
+            $aiService: '@App\Service\AI\AIService'
+
+    App\Service\SearchResultRanker:
+        arguments:
+            $preferenceTracker: '@App\Service\TravelPreferenceTracker'
+            $logger: '@logger'
+        tags:
+            - { name: monolog.logger, channel: result_ranker }
+
+    App\Service\RAGContextBuilder:
+        arguments:
+            $vectorSearchService: '@App\Service\VectorSearchService'
+            $destinationRepository: '@App\Repository\DestinationRepository'
+            $resortRepository: '@App\Repository\ResortRepository'
+            $logger: '@logger'
+        tags:
+            - { name: monolog.logger, channel: rag_context }
+
+    App\Service\TravelPreferenceTracker:
+        arguments:
+            $entityManager: '@doctrine.orm.entity_manager'
+            $logger: '@logger'
+        tags:
+            - { name: monolog.logger, channel: preference_tracker }
+
+    # Updated Application Services
     App\Service\TravelRecommenderService:
         arguments:
             $claudeService: '@App\Service\AI\Providers\ClaudeService'
             $destinationRepository: '@App\Repository\DestinationRepository'
+            $queryAnalyzer: '@App\Service\TravelQueryAnalyzer'
+            $vectorSearchService: '@App\Service\VectorSearchService'
+            $resultRanker: '@App\Service\SearchResultRanker'
+            $contextBuilder: '@App\Service\RAGContextBuilder'
+            $preferenceTracker: '@App\Service\TravelPreferenceTracker'
             $logger: '@logger'
+        tags:
+            - { name: monolog.logger, channel: travel_recommender }
     
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
