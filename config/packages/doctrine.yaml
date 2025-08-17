@@ -9,6 +9,9 @@ doctrine:
         profiling_collect_backtrace: '%kernel.debug%'
         use_savepoints: true
         
+        # Use our custom platform as the schema manager factory
+        schema_manager_factory: App\Doctrine\Platform\PostgreSQLPlatform
+        
         # pgvector support
         types:
             vector: Partitech\DoctrinePgVector\Type\VectorType
