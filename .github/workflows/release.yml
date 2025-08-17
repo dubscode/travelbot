@@ -301,12 +301,26 @@ jobs:
           git push origin main || echo "No changes to push"
 
   # ==================================================================================
+  # Build Docker Image
+  # ==================================================================================
+  docker-build:
+    name: 🐳 Build Docker Image
+    uses: ./.github/workflows/reusable-docker-build.yml
+    needs: [analyze, release]
+    if: needs.analyze.outputs.should_release == 'true' && github.event.inputs.skip_ci != 'true'
+    with:
+      image_name: travelbot
+      image_tag: ${{ needs.analyze.outputs.next_version }}
+      security_scan: true
+    secrets: inherit
+
+  # ==================================================================================
   # Build Release Assets
   # ==================================================================================
   build-assets:
     name: 🏗️ Build Release Assets
     runs-on: ubuntu-latest
-    needs: [analyze, release]
+    needs: [analyze, release, docker-build]
     if: needs.analyze.outputs.should_release == 'true'
     timeout-minutes: 30
 
@@ -315,14 +329,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.release.outputs.release_tag }}
-
-      - name: 🐳 Build release Docker image
-        if: github.event.inputs.skip_ci != 'true'
-        uses: ./.github/workflows/reusable-docker-build.yml
-        with:
-          image_name: travelbot
-          image_tag: ${{ needs.analyze.outputs.next_version }}
-          security_scan: true
 
       - name: 📦 Create source archive
         run: |
