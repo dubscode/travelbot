@@ -1,0 +1,263 @@
+name: 🐳 Reusable Docker Build
+
+on:
+  workflow_call:
+    inputs:
+      image_name:
+        description: 'Docker image name'
+        required: true
+        type: string
+      image_tag:
+        description: 'Docker image tag'
+        required: true
+        type: string
+      dockerfile_path:
+        description: 'Path to Dockerfile'
+        required: false
+        type: string
+        default: './Dockerfile'
+      docker_target:
+        description: 'Docker build target stage'
+        required: false
+        type: string
+        default: 'production'
+      build_context:
+        description: 'Docker build context'
+        required: false
+        type: string
+        default: '.'
+      push_image:
+        description: 'Whether to push the image to registry'
+        required: false
+        type: boolean
+        default: true
+      platforms:
+        description: 'Target platforms for multi-arch build'
+        required: false
+        type: string
+        default: 'linux/amd64'
+      cache_enabled:
+        description: 'Enable build cache'
+        required: false
+        type: boolean
+        default: true
+      security_scan:
+        description: 'Run security scan on built image'
+        required: false
+        type: boolean
+        default: true
+      build_args:
+        description: 'Build arguments as JSON object'
+        required: false
+        type: string
+        default: '{}'
+    
+    outputs:
+      image_uri:
+        description: 'Full URI of the built image'
+        value: ${{ jobs.build.outputs.image_uri }}
+      image_digest:
+        description: 'Image digest (SHA256)'
+        value: ${{ jobs.build.outputs.image_digest }}
+      image_size:
+        description: 'Image size in bytes'
+        value: ${{ jobs.build.outputs.image_size }}
+      vulnerability_count:
+        description: 'Number of vulnerabilities found'
+        value: ${{ jobs.build.outputs.vulnerability_count }}
+
+
+env:
+  AWS_REGION: us-west-2
+
+permissions:
+  id-token: write
+  contents: read
+  security-events: write
+
+jobs:
+  build:
+    name: 🐳 Docker Build & Push
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    
+    outputs:
+      image_uri: ${{ steps.meta.outputs.image_uri }}
+      image_digest: ${{ steps.build.outputs.digest }}
+      image_size: ${{ steps.inspect.outputs.size }}
+      vulnerability_count: ${{ steps.security.outputs.vulnerability_count }}
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ASSUME_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-DockerBuild
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: ${{ inputs.platforms }}
+
+      - name: 🔑 Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: 📋 Prepare build metadata
+        id: meta
+        run: |
+          IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ inputs.image_name }}:${{ inputs.image_tag }}"
+          echo "image_uri=$IMAGE_URI" >> $GITHUB_OUTPUT
+          
+          # Create additional tags
+          TAGS="$IMAGE_URI"
+          if [[ "${{ inputs.image_tag }}" == "latest" || "${{ github.ref_name }}" == "main" ]]; then
+            TAGS="$TAGS,${{ steps.login-ecr.outputs.registry }}/${{ inputs.image_name }}:latest"
+          fi
+          echo "tags=$TAGS" >> $GITHUB_OUTPUT
+          
+          # Prepare build args
+          BUILD_ARGS=$(echo '${{ inputs.build_args }}' | jq -r 'to_entries[] | "\(.key)=\(.value)"' | tr '\n' ',' | sed 's/,$//')
+          echo "build_args=$BUILD_ARGS" >> $GITHUB_OUTPUT
+          
+          echo "🏗️ Building image: $IMAGE_URI"
+          echo "🎯 Target stage: ${{ inputs.docker_target }}"
+          echo "🔧 Build args: $BUILD_ARGS"
+
+      - name: 🏗️ Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ inputs.build_context }}
+          file: ${{ inputs.dockerfile_path }}
+          target: ${{ inputs.docker_target }}
+          push: ${{ inputs.push_image }}
+          tags: ${{ steps.meta.outputs.tags }}
+          platforms: ${{ inputs.platforms }}
+          build-args: ${{ steps.meta.outputs.build_args }}
+          cache-from: ${{ inputs.cache_enabled && 'type=gha' || '' }}
+          cache-to: ${{ inputs.cache_enabled && 'type=gha,mode=max' || '' }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
+            org.opencontainers.image.title=${{ inputs.image_name }}
+            org.opencontainers.image.description=TravelBot Application Container
+            org.opencontainers.image.vendor=TravelBot
+            org.opencontainers.image.version=${{ inputs.image_tag }}
+            org.opencontainers.image.url=https://travelbot.tech
+          provenance: true
+          sbom: true
+
+      - name: 📊 Inspect built image
+        id: inspect
+        if: inputs.push_image
+        run: |
+          IMAGE_URI="${{ steps.meta.outputs.image_uri }}"
+          
+          # Get image size
+          SIZE=$(docker manifest inspect $IMAGE_URI | jq '.config.size')
+          echo "size=$SIZE" >> $GITHUB_OUTPUT
+          
+          # Get image details
+          docker buildx imagetools inspect $IMAGE_URI --format '{{json .}}' > image-details.json
+          
+          echo "📊 Image size: $(( $SIZE / 1024 / 1024 )) MB"
+          echo "📋 Image digest: ${{ steps.build.outputs.digest }}"
+
+      - name: 🛡️ Security scan with Trivy
+        id: security
+        if: inputs.security_scan && inputs.push_image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.meta.outputs.image_uri }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: 📊 Process security scan results
+        if: inputs.security_scan && inputs.push_image
+        run: |
+          if [[ -f trivy-results.sarif ]]; then
+            # Count vulnerabilities by severity
+            CRITICAL=$(jq '.runs[0].results[] | select(.level=="error") | .ruleId' trivy-results.sarif | wc -l)
+            HIGH=$(jq '.runs[0].results[] | select(.level=="warning") | .ruleId' trivy-results.sarif | wc -l)
+            MEDIUM=$(jq '.runs[0].results[] | select(.level=="note") | .ruleId' trivy-results.sarif | wc -l)
+            TOTAL=$((CRITICAL + HIGH + MEDIUM))
+            
+            echo "vulnerability_count=$TOTAL" >> $GITHUB_OUTPUT
+            
+            echo "🛡️ Security scan completed:"
+            echo "   Critical: $CRITICAL"
+            echo "   High: $HIGH"
+            echo "   Medium: $MEDIUM"
+            echo "   Total: $TOTAL"
+            
+            # Fail if critical vulnerabilities found
+            if [[ $CRITICAL -gt 0 ]]; then
+              echo "❌ Critical vulnerabilities found! Deployment blocked."
+              exit 1
+            fi
+          else
+            echo "vulnerability_count=0" >> $GITHUB_OUTPUT
+            echo "🛡️ No security scan results found"
+          fi
+
+      - name: 📤 Upload security scan results
+        if: inputs.security_scan && inputs.push_image && always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: 🔍 Docker Scout security analysis
+        if: inputs.security_scan && inputs.push_image
+        uses: docker/scout-action@v1
+        with:
+          command: cves,recommendations
+          image: ${{ steps.meta.outputs.image_uri }}
+          summary: true
+          format: sarif
+          output: scout-results.sarif
+
+      - name: 📤 Upload Docker Scout results
+        if: inputs.security_scan && inputs.push_image && always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'scout-results.sarif'
+
+      - name: 📤 Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-build-artifacts-${{ inputs.image_tag }}
+          path: |
+            image-details.json
+            trivy-results.sarif
+            scout-results.sarif
+          retention-days: 7
+
+      - name: 📝 Build summary
+        if: always()
+        run: |
+          echo "## 🐳 Docker Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Image URI | \`${{ steps.meta.outputs.image_uri }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image Tag | \`${{ inputs.image_tag }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Target Stage | \`${{ inputs.docker_target }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Platforms | \`${{ inputs.platforms }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Size | $(( ${{ steps.inspect.outputs.size || 0 }} / 1024 / 1024 )) MB |" >> $GITHUB_STEP_SUMMARY
+          echo "| Vulnerabilities | ${{ steps.security.outputs.vulnerability_count || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Digest | \`${{ steps.build.outputs.digest }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ inputs.push_image }}" == "true" ]]; then
+            echo "✅ Image built and pushed successfully!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ Image built successfully (not pushed)!" >> $GITHUB_STEP_SUMMARY
+          fi

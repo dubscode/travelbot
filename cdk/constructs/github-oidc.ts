@@ -1,5 +1,6 @@
 import { Duration, Stack } from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 
 type GitHubOidcProps = {
@@ -81,6 +82,13 @@ export class GitHubOidc extends Construct {
 
     // PowerUserAccess covers most services, but we need to add specific IAM permissions
     // that PowerUserAccess doesn't include for CDK deployments
+
+    // Store the role ARN in SSM Parameter Store for GitHub Actions workflows to use
+    new ssm.StringParameter(stack, 'github-actions-role-arn-parameter', {
+      parameterName: '/travelbot/github-actions-role-arn',
+      stringValue: githubActionsRole.roleArn,
+      description: 'ARN of the GitHub Actions role for OIDC authentication',
+    });
 
     this.githubActionsRole = githubActionsRole;
     this.githubOidcProvider = githubOidcProvider;

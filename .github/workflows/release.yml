@@ -1,0 +1,340 @@
+name: 🎉 Release Management
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Type of release'
+        required: true
+        type: choice
+        options:
+          - 'patch'
+          - 'minor'
+          - 'major'
+          - 'prerelease'
+        default: 'patch'
+      prerelease_identifier:
+        description: 'Prerelease identifier (for prerelease only)'
+        required: false
+        type: string
+        default: 'beta'
+      skip_ci:
+        description: 'Skip CI/CD pipeline for this release'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '22'
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  pull-requests: read
+
+jobs:
+  # ==================================================================================
+  # Analyze Changes and Determine Release Type
+  # ==================================================================================
+  analyze:
+    name: 🔍 Analyze Changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+      release_type: ${{ steps.check.outputs.release_type }}
+      current_version: ${{ steps.version.outputs.current_version }}
+      next_version: ${{ steps.version.outputs.next_version }}
+      changelog: ${{ steps.changelog.outputs.changelog }}
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🟢 Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install semantic-release
+        run: |
+          npm install -g semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/github conventional-changelog-conventionalcommits
+
+      - name: 📋 Get current version
+        id: version
+        run: |
+          # Get latest tag or default to 0.0.0
+          CURRENT_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "current_version=${CURRENT_VERSION#v}" >> $GITHUB_OUTPUT
+          echo "📋 Current version: ${CURRENT_VERSION#v}"
+
+      - name: 🔍 Analyze commit messages
+        id: check
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "release_type=${{ github.event.inputs.release_type }}" >> $GITHUB_OUTPUT
+            echo "🚀 Manual release requested: ${{ github.event.inputs.release_type }}"
+          else
+            # Get commits since last tag
+            LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+            if [[ -z "$LAST_TAG" ]]; then
+              COMMITS=$(git log --pretty=format:"%s" --since="7 days ago")
+            else
+              COMMITS=$(git log --pretty=format:"%s" ${LAST_TAG}..HEAD)
+            fi
+            
+            echo "📋 Analyzing commits since $LAST_TAG:"
+            echo "$COMMITS"
+            
+            # Determine release type based on conventional commits
+            if echo "$COMMITS" | grep -qE "^(feat|feature)(\(.+\))?!:|^BREAKING CHANGE:|^[^:]+!:"; then
+              echo "should_release=true" >> $GITHUB_OUTPUT
+              echo "release_type=major" >> $GITHUB_OUTPUT
+              echo "🎯 Breaking changes detected -> MAJOR release"
+            elif echo "$COMMITS" | grep -qE "^(feat|feature)(\(.+\))?:"; then
+              echo "should_release=true" >> $GITHUB_OUTPUT
+              echo "release_type=minor" >> $GITHUB_OUTPUT
+              echo "🎯 New features detected -> MINOR release"
+            elif echo "$COMMITS" | grep -qE "^(fix|bugfix|hotfix)(\(.+\))?:"; then
+              echo "should_release=true" >> $GITHUB_OUTPUT
+              echo "release_type=patch" >> $GITHUB_OUTPUT
+              echo "🎯 Bug fixes detected -> PATCH release"
+            else
+              echo "should_release=false" >> $GITHUB_OUTPUT
+              echo "⏭️ No release-worthy changes detected"
+            fi
+          fi
+
+      - name: 📊 Calculate next version
+        id: version-calc
+        if: steps.check.outputs.should_release == 'true'
+        run: |
+          CURRENT="${{ steps.version.outputs.current_version }}"
+          TYPE="${{ steps.check.outputs.release_type }}"
+          
+          # Parse current version
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          
+          # Calculate next version
+          case "$TYPE" in
+            "major")
+              NEXT_VERSION="$((MAJOR + 1)).0.0"
+              ;;
+            "minor")
+              NEXT_VERSION="${MAJOR}.$((MINOR + 1)).0"
+              ;;
+            "patch")
+              NEXT_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+              ;;
+            "prerelease")
+              IDENTIFIER="${{ github.event.inputs.prerelease_identifier }}"
+              NEXT_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))-${IDENTIFIER}.1"
+              ;;
+          esac
+          
+          echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+          echo "🎯 Next version: $NEXT_VERSION"
+
+      - name: 📝 Generate changelog
+        id: changelog
+        if: steps.check.outputs.should_release == 'true'
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          
+          if [[ -z "$LAST_TAG" ]]; then
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --since="7 days ago")
+          else
+            COMMITS=$(git log --pretty=format:"- %s (%h)" ${LAST_TAG}..HEAD)
+          fi
+          
+          # Generate structured changelog
+          CHANGELOG="## What's Changed\n\n"
+          
+          # Features
+          FEATURES=$(echo "$COMMITS" | grep -E "^- (feat|feature)(\(.+\))?:" || true)
+          if [[ -n "$FEATURES" ]]; then
+            CHANGELOG="$CHANGELOG### 🚀 New Features\n$FEATURES\n\n"
+          fi
+          
+          # Fixes
+          FIXES=$(echo "$COMMITS" | grep -E "^- (fix|bugfix|hotfix)(\(.+\))?:" || true)
+          if [[ -n "$FIXES" ]]; then
+            CHANGELOG="$CHANGELOG### 🐛 Bug Fixes\n$FIXES\n\n"
+          fi
+          
+          # Other changes
+          OTHER=$(echo "$COMMITS" | grep -vE "^- (feat|feature|fix|bugfix|hotfix)(\(.+\))?:" || true)
+          if [[ -n "$OTHER" ]]; then
+            CHANGELOG="$CHANGELOG### 🔧 Other Changes\n$OTHER\n\n"
+          fi
+          
+          # Save changelog (escape for JSON)
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  # ==================================================================================
+  # Create Release
+  # ==================================================================================
+  release:
+    name: 🎉 Create Release
+    runs-on: ubuntu-latest
+    needs: analyze
+    if: needs.analyze.outputs.should_release == 'true'
+    timeout-minutes: 20
+    
+    outputs:
+      release_tag: ${{ steps.tag.outputs.tag }}
+      release_url: ${{ steps.create-release.outputs.html_url }}
+      upload_url: ${{ steps.create-release.outputs.upload_url }}
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🏷️ Create and push tag
+        id: tag
+        run: |
+          TAG="v${{ needs.analyze.outputs.next_version }}"
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+          
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "🏷️ Created and pushed tag: $TAG"
+
+      - name: 🎉 Create GitHub Release
+        id: create-release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          release_name: "Release ${{ steps.tag.outputs.tag }}"
+          body: |
+            # TravelBot ${{ steps.tag.outputs.tag }}
+            
+            ${{ needs.analyze.outputs.changelog }}
+            
+            ## 📦 Docker Images
+            
+            ```bash
+            docker pull <registry>/travelbot:${{ needs.analyze.outputs.next_version }}
+            docker pull <registry>/travelbot:latest
+            ```
+            
+            ## 🚀 Deployment
+            
+            This release will be automatically deployed to production if CI checks pass.
+            
+            ## 📊 Release Information
+            
+            - **Release Type**: ${{ needs.analyze.outputs.release_type }}
+            - **Previous Version**: ${{ needs.analyze.outputs.current_version }}
+            - **New Version**: ${{ needs.analyze.outputs.next_version }}
+            - **Release Date**: $(date -u +%Y-%m-%d)
+            - **Commit**: ${{ github.sha }}
+            
+            ---
+            
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ needs.analyze.outputs.current_version }}...${{ steps.tag.outputs.tag }}
+          draft: false
+          prerelease: ${{ needs.analyze.outputs.release_type == 'prerelease' }}
+
+      - name: 📊 Update version files
+        run: |
+          # Update package.json version if it exists
+          if [[ -f package.json ]]; then
+            jq --arg version "${{ needs.analyze.outputs.next_version }}" '.version = $version' package.json > package.json.tmp
+            mv package.json.tmp package.json
+            echo "📝 Updated package.json version"
+          fi
+          
+          # Update CDK package.json if it exists
+          if [[ -f cdk/package.json ]]; then
+            jq --arg version "${{ needs.analyze.outputs.next_version }}" '.version = $version' cdk/package.json > cdk/package.json.tmp
+            mv cdk/package.json.tmp cdk/package.json
+            echo "📝 Updated cdk/package.json version"
+          fi
+          
+          # Create VERSION file
+          echo "${{ needs.analyze.outputs.next_version }}" > VERSION
+          echo "📝 Created VERSION file"
+
+      - name: 📝 Commit version updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add .
+          git commit -m "chore: bump version to ${{ needs.analyze.outputs.next_version }} [skip ci]" || echo "No changes to commit"
+          git push origin main || echo "No changes to push"
+
+  # ==================================================================================
+  # Build Release Assets
+  # ==================================================================================
+  build-assets:
+    name: 🏗️ Build Release Assets
+    runs-on: ubuntu-latest
+    needs: [analyze, release]
+    if: needs.analyze.outputs.should_release == 'true'
+    timeout-minutes: 30
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.release_tag }}
+
+      - name: 🐳 Build release Docker image
+        if: github.event.inputs.skip_ci != 'true'
+        uses: ./.github/workflows/reusable-docker-build.yml
+        with:
+          image_name: travelbot
+          image_tag: ${{ needs.analyze.outputs.next_version }}
+          security_scan: true
+
+      - name: 📦 Create source archive
+        run: |
+          tar -czf "travelbot-${{ needs.analyze.outputs.next_version }}-source.tar.gz" \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='vendor' \
+            --exclude='var/cache' \
+            --exclude='var/log' \
+            --exclude='.env.local' \
+            .
+
+      - name: 📤 Upload source archive to release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.release.outputs.upload_url }}
+          asset_path: ./travelbot-${{ needs.analyze.outputs.next_version }}-source.tar.gz
+          asset_name: travelbot-${{ needs.analyze.outputs.next_version }}-source.tar.gz
+          asset_content_type: application/gzip
+
