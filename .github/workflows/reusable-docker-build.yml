@@ -110,12 +110,19 @@ jobs:
       - name: 📋 Prepare build metadata
         id: meta
         run: |
-          IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ inputs.image_name }}:${{ inputs.image_tag }}"
+          # Use provided tag or fallback to git SHA
+          TAG="${{ inputs.image_tag }}"
+          if [[ -z "$TAG" ]]; then
+            TAG="${{ github.sha }}"
+            echo "⚠️ No image tag provided, using git SHA: $TAG"
+          fi
+          
+          IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ inputs.image_name }}:$TAG"
           echo "image_uri=$IMAGE_URI" >> $GITHUB_OUTPUT
           
           # Create additional tags
           TAGS="$IMAGE_URI"
-          if [[ "${{ inputs.image_tag }}" == "latest" || "${{ github.ref_name }}" == "main" ]]; then
+          if [[ "$TAG" == "latest" || "${{ github.ref_name }}" == "main" ]]; then
             TAGS="$TAGS,${{ steps.login-ecr.outputs.registry }}/${{ inputs.image_name }}:latest"
           fi
           echo "tags=$TAGS" >> $GITHUB_OUTPUT

@@ -65,7 +65,7 @@ jobs:
       should_release: ${{ steps.check.outputs.should_release }}
       release_type: ${{ steps.check.outputs.release_type }}
       current_version: ${{ steps.version.outputs.current_version }}
-      next_version: ${{ steps.version.outputs.next_version }}
+      next_version: ${{ steps.version-calc.outputs.next_version }}
       changelog: ${{ steps.changelog.outputs.changelog }}
 
     steps:
@@ -311,7 +311,7 @@ jobs:
     if: needs.analyze.outputs.should_release == 'true' && github.event.inputs.skip_ci != 'true'
     with:
       image_name: travelbot
-      image_tag: ${{ needs.analyze.outputs.next_version }}
+      image_tag: ${{ needs.analyze.outputs.next_version || github.sha }}
       security_scan: true
     secrets: inherit
 
