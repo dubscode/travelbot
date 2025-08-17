@@ -1,6 +1,6 @@
 {
   "name": "travelbot-cdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "CDK infrastructure for TravelBot application",
   "main": "index.js",
   "scripts": {

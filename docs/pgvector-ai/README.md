@@ -10,11 +10,8 @@ TravelBot implements a sophisticated AI-powered data seeding and semantic vector
 2. [Data Seeding System](#data-seeding-system)
 3. [Vector Search & Embeddings](#vector-search--embeddings)
 4. [Entity Relationships](#entity-relationships)
-5. [Package Dependencies](#package-dependencies)
-6. [Implementation Details](#implementation-details)
-7. [Example Queries & Flows](#example-queries--flows)
-8. [Performance & Optimization](#performance--optimization)
-9. [Troubleshooting](#troubleshooting)
+5. [Implementation Details](#implementation-details)
+6. [Troubleshooting](#troubleshooting)
 
 ## System Architecture
 
@@ -70,10 +67,10 @@ The seeding system generates realistic travel data using AI-driven algorithms an
 #### 1. Generator Classes
 
 **DestinationGenerator** (`src/Generator/DestinationGenerator.php`)
-- Generates diverse destinations across 40+ countries
+- Generates diverse destinations across multiple countries
 - Creates realistic geographic coordinates, climate data, and activities
 - Implements intelligent tag and activity selection based on location characteristics
-- Supports 500+ cities with proper geographic distribution
+- Proper geographic distribution based on seed count
 
 **ResortGenerator** (`src/Generator/ResortGenerator.php`)
 - Generates context-appropriate resorts based on destination characteristics
@@ -82,7 +79,7 @@ The seeding system generates realistic travel data using AI-driven algorithms an
 - Matches resort categories to destination types (coastal, mountain, urban, etc.)
 
 **AmenityGenerator** (`src/Generator/AmenityGenerator.php`)
-- Creates 117 amenities across 9 categories (dining, recreation, business, etc.)
+- Creates amenities across multiple categories (dining, recreation, business, wellness, entertainment, family, luxury, technology, transportation)
 - Implements intelligent amenity assignment based on resort star rating and category
 - Ensures logical distribution (all resorts get basic amenities, luxury resorts get premium amenities)
 
@@ -474,7 +471,7 @@ Each entity with an embedding column enables semantic search:
 3. **Resort Categories**: Search by accommodation style, target audience
 4. **Amenities**: Search by facility type, recreational activities
 
-## Package Dependencies
+## Implementation Details
 
 ### Core Packages
 
@@ -551,8 +548,6 @@ protected function _getPortableTableIndexesList($tableIndexes, $tableName = null
 2. **Schema Validation**: Prevents Doctrine from trying to drop custom vector indexes
 3. **Migration Control**: Allows manual management of vector-specific indexes
 4. **Performance**: HNSW indexes are critical for vector search performance
-
-## Implementation Details
 
 ### Vector Search Service
 
@@ -794,64 +789,6 @@ public function searchMountainSkiResorts(string $query): array
 }
 ```
 
-## Performance & Optimization
-
-### HNSW Index Performance
-
-**Index Characteristics:**
-- **Build Time**: O(n log n) for n vectors
-- **Query Time**: O(log n) average case
-- **Memory**: ~1.5x vector storage size
-- **Accuracy**: 95%+ recall at top-k results
-
-**Performance Benchmarks:**
-```
-Dataset Size: 10K amenities, 5K destinations, 2K categories
-Query Performance:
-- Single vector search: ~2-5ms
-- Multi-entity search: ~10-20ms
-- Complex JOIN queries: ~50-100ms
-
-Index Storage:
-- 1024-dim vectors: ~4KB per vector
-- HNSW overhead: ~6KB per vector
-- Total storage: ~10KB per entity with embedding
-```
-
-### Caching Strategy
-
-**Embedding Cache (24-hour TTL)**
-```php
-// Cache key generation
-$cacheKey = 'titan_embedding_' . md5($text);
-
-// Cache hit ratio: ~85% for repeated queries
-// Cache miss penalty: ~500-1000ms (AWS Bedrock call)
-// Cache hit performance: ~1-2ms
-```
-
-**Query Optimization Tips:**
-
-1. **Similarity Thresholds**: Use 0.7+ for precise matches, 0.5+ for broader results
-2. **Limit Results**: Keep limits under 50 for UI responsiveness
-3. **Index Maintenance**: HNSW indexes auto-maintain, no manual optimization needed
-4. **Batch Processing**: Use async embedding generation for large datasets
-
-### Memory Management
-
-**Embedding Generation:**
-```bash
-# Process embeddings in batches
-npm run messenger:consume:limit  # 100 messages max, 1 hour timeout
-
-# Monitor memory usage
-docker stats travelbot-app
-
-# Expected memory usage:
-# - Base Symfony app: ~50MB
-# - Per embedding generation: ~10MB peak
-# - Stable state: ~100-200MB
-```
 
 ## Troubleshooting
 
@@ -932,25 +869,11 @@ $sim12 = 1 - $this->cosinDistance($embedding1, $embedding2); // Should be ~0.9+
 $sim13 = 1 - $this->cosinDistance($embedding1, $embedding3); // Should be ~0.3-0.6
 ```
 
-### Monitoring & Alerting
+### Available Commands
 
-**Key Metrics to Monitor:**
-1. **Embedding Generation Rate**: Messages/minute processed
-2. **Vector Search Latency**: Query response times
-3. **Cache Hit Ratio**: Embedding cache effectiveness
-4. **Database Performance**: HNSW index efficiency
-5. **AWS Bedrock Costs**: Token usage and API calls
-
-**Health Checks:**
 ```bash
-# Verify vector search functionality
+# Test vector search functionality
 bin/console app:test-vector-search "luxury beach resort"
-
-# Check messenger queue health
-bin/console messenger:stats embeddings
-
-# Validate database vector indexes
-bin/console app:vector-health-check
 ```
 
 ---

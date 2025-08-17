@@ -403,39 +403,20 @@ eventSource.addEventListener('complete', (event) => {
 
 ## 🚀 Performance Considerations
 
-### Rate Limiting
-
-- Query analysis: 60 requests/minute per user
-- Personalized recommendations: 30 requests/minute per user
-- Interaction tracking: 120 requests/minute per user
-
 ### Caching
 
-- Embedding generation: 15 minutes TTL
-- Search results: Request-scoped cache
-- User preferences: Database persistence
+- Embedding generation: 24 hours TTL (in TitanEmbeddingsService)
+- Search results: No caching implemented
+- User preferences: Stored in database
 
-### Response Times
+## 🔒 Security
 
-- Query analysis: ~500ms
-- Vector search: ~200ms
-- Ranking: ~100ms
-- Context building: ~150ms
-- Total RAG pipeline: ~1000ms
+### Current Implementation
 
-## 🔒 Security & Privacy
-
-### Data Protection
-
-- User queries are not permanently stored
-- Interaction data is anonymized after 90 days
-- Preference data is encrypted at rest
-
-### API Security
-
-- CSRF protection on all POST endpoints
-- Rate limiting per authenticated user
-- Input validation and sanitization
+- Session-based authentication required
+- Input validation on endpoints
+- User queries and interactions are stored in database
+- No automatic data retention policies implemented
 
 ## 🧪 Testing Examples
 

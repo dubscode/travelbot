@@ -11,20 +11,20 @@
 
 ### Prerequisites
 - Docker & Docker Compose
-- PHP 8.3+ (for local development)
+- PHP 8.1+ (for local development without Docker)
 - Node.js & npm (for assets)
 
 ### Setup
 ```bash
 # Clone and start with Docker
-git clone <repository-url>
+git clone https://github.com/dubscode/travelbot.git
 cd travelbot
-docker-compose up -d
+docker compose up -d
 
 # Install dependencies and setup database
-docker-compose exec php composer install
-docker-compose exec php php bin/console doctrine:migrations:migrate
-docker-compose exec php php bin/console app:seed-destinations
+docker compose exec app composer install
+docker compose exec app php bin/console doctrine:migrations:migrate
+docker compose exec app php bin/console app:seed-destinations --count=10
 
 # Install and build frontend assets
 npm install && npm run build
@@ -57,9 +57,9 @@ open http://localhost:8000
 
 ## 🏗️ Architecture
 
-**Backend:** Symfony 7.3 with PHP 8.3  
-**Frontend:** Twig templates with Hotwire Turbo & Tailwind CSS  
-**Database:** PostgreSQL 17 with Doctrine ORM  
+**Backend:** Symfony 7.3 with PHP 8.1+ (8.3 in Docker)  
+**Frontend:** Twig templates with Hotwire Turbo & Tailwind CSS 4  
+**Database:** PostgreSQL with pgvector extension (v15 local, Neon cloud in production)  
 **AI Integration:** Claude AI via AWS Bedrock  
 **Infrastructure:** AWS ECS Fargate with CDK deployment  
 
@@ -94,25 +94,20 @@ npm run build
 ### Docker Commands
 ```bash
 # Start all services
-docker-compose up -d
+docker compose up -d
 
 # View logs
-docker-compose logs -f
+docker compose logs -f
 
 # Execute commands in containers
-docker-compose exec php php bin/console <command>
-docker-compose exec php composer <command>
+docker compose exec app php bin/console <command>
+docker compose exec app composer <command>
 ```
 
 ## 📖 Documentation
 
-- **[🧠 Travel Recommendation RAG](./docs/travel-recommendation-rag/README.md)** - Core recommendation engine documentation
-- **[Architecture Overview](./docs/architecture/README.md)** - System design and components
-- **[Development Guide](./docs/development/README.md)** - Local setup and API documentation
-- **[Infrastructure](./docs/infrastructure/README.md)** - AWS deployment with CDK
-- **[Operations](./docs/operations/README.md)** - Monitoring and troubleshooting
-- **[Features](./docs/features/README.md)** - Detailed feature documentation
-- **[Vectors](./docs/pgvector-ai/README.md)** - Vector search & AI powered seeding
+- **[🧠 Travel Recommendation RAG](./docs/travel-recommendation-rag/README.md)** - Core recommendation engine with 5-service architecture
+- **[🔍 Vector Search & AI](./docs/pgvector-ai/README.md)** - pgvector implementation with AWS Bedrock Titan embeddings
 
 ## 🔗 Live Demo
 
