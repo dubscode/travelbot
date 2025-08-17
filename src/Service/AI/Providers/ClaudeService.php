@@ -1,9 +1,8 @@
 <?php
 
-namespace App\Service;
+namespace App\Service\AI\Providers;
 
 use Aws\BedrockRuntime\BedrockRuntimeClient;
-use Aws\Credentials\CredentialProvider;
 use Aws\Exception\AwsException;
 use Psr\Log\LoggerInterface;
 
@@ -12,35 +11,17 @@ class ClaudeService
     private BedrockRuntimeClient $bedrockClient;
 
     public function __construct(
-        private string $region,
+        BedrockClientFactory $clientFactory,
         private string $sonnetModel,
         private string $haikuModel,
         private LoggerInterface $logger
     ) {
-        // Detect if running in production/ECS environment
-        $isProduction = getenv('APP_ENV') === 'prod' || 
-                        getenv('AWS_EXECUTION_ENV') === 'AWS_ECS_FARGATE' ||
-                        isset($_SERVER['AWS_EXECUTION_ENV']);
-        
-        if ($isProduction) {
-            // Use default credential chain (IAM role in ECS)
-            $this->bedrockClient = new BedrockRuntimeClient([
-                'region' => $this->region,
-                'version' => 'latest',
-            ]);
-        } else {
-            // Use SSO for local development
-            $profileName = getenv('AWS_PROFILE') ?: 'anny-prod';
-            $credentialProvider = CredentialProvider::sso($profileName);
-            
-            $this->bedrockClient = new BedrockRuntimeClient([
-                'region' => $this->region,
-                'version' => 'latest',
-                'credentials' => $credentialProvider,
-            ]);
-        }
+        $this->bedrockClient = $clientFactory->createClient();
     }
 
+    /**
+     * Generate a response using Claude models
+     */
     public function generateResponse(
         array $messages,
         bool $preferFastResponse = false,
@@ -68,23 +49,26 @@ class ClaudeService
             ];
 
         } catch (AwsException $e) {
-            $this->logger->error('Bedrock API error: ' . $e->getMessage(), [
+            $this->logger->error('Claude API error: ' . $e->getMessage(), [
                 'model' => $modelId,
                 'messages' => $messages,
                 'awsCode' => $e->getAwsErrorCode(),
             ]);
             
-            throw new \RuntimeException('Failed to generate AI response: ' . $e->getMessage(), 0, $e);
+            throw new \RuntimeException('Failed to generate Claude response: ' . $e->getMessage(), 0, $e);
         } catch (\Exception $e) {
             $this->logger->error('Claude service error: ' . $e->getMessage(), [
                 'model' => $modelId,
                 'messages' => $messages,
             ]);
             
-            throw new \RuntimeException('Failed to generate AI response: ' . $e->getMessage(), 0, $e);
+            throw new \RuntimeException('Failed to generate Claude response: ' . $e->getMessage(), 0, $e);
         }
     }
 
+    /**
+     * Stream a response using Claude models
+     */
     public function streamResponse(
         array $messages,
         bool $preferFastResponse = false,
@@ -138,7 +122,7 @@ class ClaudeService
             }
 
         } catch (AwsException $e) {
-            $this->logger->error('Bedrock streaming error: ' . $e->getMessage(), [
+            $this->logger->error('Claude streaming error: ' . $e->getMessage(), [
                 'model' => $modelId,
                 'messages' => $messages,
                 'awsCode' => $e->getAwsErrorCode(),
@@ -146,7 +130,7 @@ class ClaudeService
             
             yield [
                 'type' => 'error',
-                'message' => 'Failed to stream AI response: ' . $e->getMessage(),
+                'message' => 'Failed to stream Claude response: ' . $e->getMessage(),
                 'model' => $modelId
             ];
         } catch (\Exception $e) {
@@ -157,19 +141,37 @@ class ClaudeService
             
             yield [
                 'type' => 'error',
-                'message' => 'Failed to stream AI response: ' . $e->getMessage(),
+                'message' => 'Failed to stream Claude response: ' . $e->getMessage(),
                 'model' => $modelId
             ];
         }
     }
 
+    /**
+     * Get the Sonnet model ID
+     */
     public function getSonnetModel(): string
     {
         return $this->sonnetModel;
     }
 
+    /**
+     * Get the Haiku model ID
+     */
     public function getHaikuModel(): string
     {
         return $this->haikuModel;
+    }
+
+    /**
+     * Get model information
+     */
+    public function getModelInfo(): array
+    {
+        return [
+            'sonnet_model' => $this->sonnetModel,
+            'haiku_model' => $this->haikuModel,
+            'provider' => 'AWS Bedrock'
+        ];
     }
 }

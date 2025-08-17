@@ -120,6 +120,7 @@ COPY --from=asset-builder /app/public/build ./public/build
 ENV APP_ENV=prod
 ENV APP_DEBUG=0
 ENV APP_RUNTIME_ENV=prod
+ENV APP_RUNTIME_DISABLE_DOTENV=true
 ENV XDEBUG_MODE=off
 
 # Create cache directory and set permissions
@@ -203,6 +204,7 @@ COPY --from=asset-builder /app/public/build ./public/build
 ENV APP_ENV=prod
 ENV APP_DEBUG=0
 ENV APP_RUNTIME_ENV=prod
+ENV APP_RUNTIME_DISABLE_DOTENV=true
 ENV XDEBUG_MODE=off
 
 # Create cache directory and set permissions

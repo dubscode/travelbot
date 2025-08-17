@@ -12,6 +12,7 @@
         "doctrine/doctrine-bundle": "^2.15",
         "doctrine/doctrine-migrations-bundle": "^3.4",
         "doctrine/orm": "^3.5",
+        "partitech/doctrine-pgvector": "*",
         "phpdocumentor/reflection-docblock": "^5.6",
         "phpstan/phpdoc-parser": "^2.2",
         "symfony/asset": "7.3.*",
@@ -96,7 +97,7 @@
             "require": "7.3.*"
         },
         "runtime": {
-            "disable_dotenv": true
+            "disable_dotenv": "%env(bool:APP_RUNTIME_DISABLE_DOTENV)%"
         }
     },
     "require-dev": {

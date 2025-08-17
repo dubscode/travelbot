@@ -3,6 +3,8 @@
 namespace App\Entity;
 
 use App\Repository\DestinationRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
@@ -62,10 +64,14 @@ class Destination
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private ?\DateTimeInterface $updatedAt = null;
 
+    #[ORM\OneToMany(mappedBy: 'destination', targetEntity: Resort::class)]
+    private Collection $resorts;
+
     public function __construct()
     {
         $this->createdAt = new \DateTime();
         $this->updatedAt = new \DateTime();
+        $this->resorts = new ArrayCollection();
     }
 
     public function getId(): ?Uuid
@@ -235,6 +241,35 @@ class Destination
     public function setUpdatedAt(\DateTimeInterface $updatedAt): static
     {
         $this->updatedAt = $updatedAt;
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Resort>
+     */
+    public function getResorts(): Collection
+    {
+        return $this->resorts;
+    }
+
+    public function addResort(Resort $resort): static
+    {
+        if (!$this->resorts->contains($resort)) {
+            $this->resorts->add($resort);
+            $resort->setDestination($this);
+        }
+
+        return $this;
+    }
+
+    public function removeResort(Resort $resort): static
+    {
+        if ($this->resorts->removeElement($resort)) {
+            if ($resort->getDestination() === $this) {
+                $resort->setDestination(null);
+            }
+        }
+
         return $this;
     }
 }

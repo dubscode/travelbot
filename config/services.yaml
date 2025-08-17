@@ -20,19 +20,49 @@ services:
             - '../src/Entity/'
             - '../src/Kernel.php'
 
-    # AWS Bedrock Services
-    App\Service\ClaudeService:
+    # AWS Bedrock Client Factory
+    App\Service\AI\Providers\BedrockClientFactory:
         arguments:
             $region: '%env(AWS_REGION)%'
+            $logger: '@logger'
+        tags:
+            - { name: monolog.logger, channel: bedrock }
+
+    # AI Provider Services
+    App\Service\AI\Providers\ClaudeService:
+        arguments:
+            $clientFactory: '@App\Service\AI\Providers\BedrockClientFactory'
             $sonnetModel: '%env(BEDROCK_CLAUDE_SONNET_MODEL)%'
             $haikuModel: '%env(BEDROCK_CLAUDE_HAIKU_MODEL)%'
             $logger: '@logger'
         tags:
             - { name: monolog.logger, channel: claude }
 
+    App\Service\AI\Providers\TitanEmbeddingsService:
+        arguments:
+            $clientFactory: '@App\Service\AI\Providers\BedrockClientFactory'
+            $cache: '@cache.app'
+            $logger: '@logger'
+        tags:
+            - { name: monolog.logger, channel: embeddings }
+
+    # Main AI Service Facade
+    App\Service\AI\AIService:
+        arguments:
+            $claudeService: '@App\Service\AI\Providers\ClaudeService'
+            $embeddingsService: '@App\Service\AI\Providers\TitanEmbeddingsService'
+            $clientFactory: '@App\Service\AI\Providers\BedrockClientFactory'
+            $logger: '@logger'
+        tags:
+            - { name: monolog.logger, channel: ai }
+
+    # Backward compatibility alias for existing ClaudeService references
+    App\Service\ClaudeService: '@App\Service\AI\Providers\ClaudeService'
+
+    # Application Services
     App\Service\TravelRecommenderService:
         arguments:
-            $claudeService: '@App\Service\ClaudeService'
+            $claudeService: '@App\Service\AI\Providers\ClaudeService'
             $destinationRepository: '@App\Repository\DestinationRepository'
             $logger: '@logger'
     
