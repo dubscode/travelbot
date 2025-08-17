@@ -2,8 +2,6 @@
 
 namespace App\Generator;
 
-use App\Entity\Destination;
-
 class DestinationGenerator
 {
     private array $countries = [
@@ -36,7 +34,11 @@ class DestinationGenerator
         'New Zealand' => ['Auckland', 'Wellington', 'Christchurch', 'Queenstown', 'Rotorua', 'Dunedin', 'Tauranga', 'Hamilton'],
         'Norway' => ['Oslo', 'Bergen', 'Trondheim', 'Stavanger', 'Tromsø', 'Ålesund', 'Kristiansand', 'Bodø'],
         'Iceland' => ['Reykjavik', 'Akureyri', 'Keflavik', 'Selfoss', 'Husavik', 'Vik', 'Hofn', 'Isafjordur'],
-        'Russia' => ['Moscow', 'St. Petersburg', 'Sochi', 'Kazan', 'Yekaterinburg', 'Nizhny Novgorod', 'Samara', 'Rostov-on-Don']
+        'Ukraine' => ['Kyiv', 'Lviv', 'Odesa', 'Kharkiv', 'Dnipro', 'Chernivtsi', 'Ivano-Frankivsk', 'Poltava'],
+        'Poland' => ['Warsaw', 'Krakow', 'Gdansk', 'Wroclaw', 'Poznan', 'Lublin', 'Zakopane', 'Torun'],
+        'Ireland' => ['Dublin', 'Cork', 'Galway', 'Killarney', 'Dingle', 'Kilkenny', 'Waterford', 'Limerick'],
+        'Scotland' => ['Edinburgh', 'Glasgow', 'Stirling', 'Inverness', 'St. Andrews', 'Isle of Skye', 'Oban', 'Fort William'],
+        'Canada' => ['Toronto', 'Vancouver', 'Montreal', 'Quebec City', 'Calgary', 'Ottawa', 'Banff', 'Victoria'],
     ];
 
     private array $climateTypes = [
@@ -71,12 +73,6 @@ class DestinationGenerator
         'foodie', 'party', 'wellness', 'spiritual', 'educational', 'photogenic'
     ];
 
-    private array $bestMonths = [
-        'spring' => ['March', 'April', 'May'],
-        'summer' => ['June', 'July', 'August'],
-        'autumn' => ['September', 'October', 'November'],
-        'winter' => ['December', 'January', 'February']
-    ];
 
     private array $popularityWeights = [
         1 => 0.05,  // 5% very low
@@ -91,7 +87,7 @@ class DestinationGenerator
     /**
      * Generate diverse destination data
      */
-    public function generate(int $count = 100): array
+    public function generateDestinations(int $count = 100): array
     {
         $destinations = [];
         $this->generated = [];
@@ -132,10 +128,10 @@ class DestinationGenerator
         $climate = $this->climateTypes[$climateType];
         
         // Generate activities based on destination type
-        $selectedActivities = $this->selectActivities($country, $city, $climateType);
+        $selectedActivities = $this->selectActivities($climateType, $country, $city);
         
         // Generate tags based on country and activities
-        $selectedTags = $this->selectTags($country, $selectedActivities, $climateType);
+        $selectedTags = $this->selectTags($selectedActivities, $climateType, $country);
         
         // Generate coordinates based on real geographic data
         $coordinates = $this->generateCoordinates($country);
@@ -147,7 +143,7 @@ class DestinationGenerator
         $bestMonths = $this->selectBestMonths($climateType, $coordinates['latitude']);
         
         // Generate popularity score
-        $popularity = $this->generatePopularityScore($country, $city);
+        $popularity = $this->generatePopularityScore($city, $country);
 
         return [
             'name' => $city,
@@ -166,13 +162,29 @@ class DestinationGenerator
         ];
     }
 
-    private function selectActivities(string $country, string $city, string $climateType): array
+    private function selectActivities(string $climateType, ?string $country = null, ?string $city = null): array
     {
         $activities = [];
         $numActivities = rand(3, 8);
         
         // Always include cultural activities
         $activities = array_merge($activities, array_slice($this->activities['cultural'], 0, 2));
+        
+        // Add country-specific activities
+        if ($country) {
+            $countryActivities = $this->getCountrySpecificActivities($country);
+            if ($countryActivities) {
+                $activities = array_merge($activities, array_slice($countryActivities, 0, 2));
+            }
+        }
+        
+        // Add city-specific activities
+        if ($city) {
+            $cityActivities = $this->getCitySpecificActivities($city);
+            if ($cityActivities) {
+                $activities = array_merge($activities, $cityActivities);
+            }
+        }
         
         // Add climate-appropriate activities
         if (in_array($climateType, ['tropical', 'coastal', 'mediterranean'])) {
@@ -185,22 +197,37 @@ class DestinationGenerator
         
         // Add random activities from different categories
         $remainingCount = $numActivities - count($activities);
-        $allActivities = array_merge(...array_values($this->activities));
-        $randomActivities = array_rand(array_flip($allActivities), min($remainingCount, count($allActivities)));
-        
-        if (is_array($randomActivities)) {
-            $activities = array_merge($activities, $randomActivities);
-        } else {
-            $activities[] = $randomActivities;
+        if ($remainingCount > 0) {
+            $allActivities = array_merge(...array_values($this->activities));
+            $availableCount = count($allActivities);
+            $selectCount = min($remainingCount, $availableCount);
+            
+            if ($selectCount > 0) {
+                $randomActivities = array_rand(array_flip($allActivities), $selectCount);
+                
+                if (is_array($randomActivities)) {
+                    $activities = array_merge($activities, $randomActivities);
+                } else {
+                    $activities[] = $randomActivities;
+                }
+            }
         }
         
         return array_unique($activities);
     }
 
-    private function selectTags(string $country, array $activities, string $climateType): array
+    private function selectTags(array $activities, string $climateType, ?string $country = null): array
     {
         $tags = [];
         $numTags = rand(3, 6);
+        
+        // Add country-specific tags
+        if ($country) {
+            $countryTags = $this->getCountrySpecificTags($country);
+            if ($countryTags) {
+                $tags = array_merge($tags, array_slice($countryTags, 0, 2));
+            }
+        }
         
         // Add climate-based tags
         if (in_array($climateType, ['tropical', 'coastal'])) {
@@ -219,12 +246,15 @@ class DestinationGenerator
         // Add random tags
         $remainingCount = $numTags - count($tags);
         $availableTags = array_diff($this->tags, $tags);
-        $randomTags = array_rand(array_flip($availableTags), min($remainingCount, count($availableTags)));
         
-        if (is_array($randomTags)) {
-            $tags = array_merge($tags, $randomTags);
-        } elseif ($randomTags !== null) {
-            $tags[] = $randomTags;
+        if (!empty($availableTags) && $remainingCount > 0) {
+            $randomTags = array_rand(array_flip($availableTags), min($remainingCount, count($availableTags)));
+            
+            if (is_array($randomTags)) {
+                $tags = array_merge($tags, $randomTags);
+            } elseif ($randomTags !== null) {
+                $tags[] = $randomTags;
+            }
         }
         
         return array_unique($tags);
@@ -307,7 +337,7 @@ class DestinationGenerator
         return array_slice($seasonalMonths, 0, rand(3, min(6, count($seasonalMonths))));
     }
 
-    private function generatePopularityScore(string $country, string $city): int
+    private function generatePopularityScore(string $city, ?string $country = null): int
     {
         // Major tourist destinations get higher scores
         $majorDestinations = [
@@ -319,6 +349,17 @@ class DestinationGenerator
             return rand(8, 10);
         }
         
+        // Add country popularity boost
+        $countryBoost = 0;
+        if ($country) {
+            $popularCountries = [
+                'France', 'Spain', 'Italy', 'Japan', 'USA', 'Greece', 'Turkey', 'Thailand'
+            ];
+            if (in_array($country, $popularCountries)) {
+                $countryBoost = 1;
+            }
+        }
+        
         // Use weighted random for other destinations
         $rand = mt_rand() / mt_getrandmax();
         $cumulative = 0;
@@ -326,11 +367,11 @@ class DestinationGenerator
         foreach ($this->popularityWeights as $score => $weight) {
             $cumulative += $weight;
             if ($rand <= $cumulative) {
-                return $score * 2; // Scale to 1-10
+                return min(10, ($score * 2) + $countryBoost); // Scale to 1-10 with country boost
             }
         }
         
-        return 5; // Default
+        return min(10, 5 + $countryBoost); // Default with country boost
     }
 
     private function generateDescription(string $city, string $country, array $activities, string $climateType): string
@@ -360,10 +401,85 @@ class DestinationGenerator
         );
     }
 
-    private function generateImageUrl(string $city, string $country): string
+    private function generateImageUrl(string $city, ?string $country = null): string
     {
-        // Generate a placeholder URL (in production, you might use actual image services)
-        $slug = strtolower(str_replace(' ', '-', $city));
-        return "https://images.unsplash.com/photo-1234567890/destination-{$slug}?w=800&h=600&fit=crop";
+        // Use placehold.co with destination name as text
+        $displayText = $country ? "{$city}, {$country}" : $city;
+        $encodedText = urlencode($displayText);
+        return "https://placehold.co/800x600/4a90e2/ffffff?text={$encodedText}";
+    }
+
+    private function getCountrySpecificActivities(string $country): array
+    {
+        $countryActivities = [
+            'Japan' => ['sumo wrestling', 'tea ceremony', 'cherry blossom viewing', 'hot springs'],
+            'Italy' => ['wine tasting', 'cooking classes', 'opera shows', 'art restoration tours'],
+            'France' => ['wine tours', 'perfume making', 'cheese tasting', 'fashion tours'],
+            'Spain' => ['flamenco shows', 'bullfighting', 'paella cooking', 'tapas tours'],
+            'Mexico' => ['tequila tasting', 'mariachi shows', 'cenote swimming', 'ruins exploration'],
+            'India' => ['yoga retreats', 'spice tours', 'ayurveda treatments', 'bollywood tours'],
+            'Thailand' => ['muay thai training', 'elephant sanctuaries', 'floating markets', 'buddhist meditation'],
+            'Egypt' => ['pyramid tours', 'nile cruises', 'hieroglyphics workshops', 'desert camping'],
+            'Peru' => ['alpaca farms', 'inca trail hiking', 'quinoa cooking', 'textile weaving'],
+            'China' => ['tai chi classes', 'great wall hiking', 'calligraphy lessons', 'jade shopping'],
+            'Brazil' => ['samba dancing', 'capoeira classes', 'amazon tours', 'carnival parades'],
+            'Morocco' => ['carpet weaving', 'henna painting', 'camel trekking', 'tagine cooking'],
+            'Greece' => ['olive oil tasting', 'pottery making', 'mythology tours', 'island hopping'],
+            'Turkey' => ['turkish bath', 'carpet shopping', 'whirling dervish shows', 'hot air ballooning'],
+            'Vietnam' => ['pho cooking', 'motorbike tours', 'silk weaving', 'water puppet shows'],
+            'Indonesia' => ['batik making', 'volcano trekking', 'gamelan music', 'temple ceremonies']
+        ];
+
+        return $countryActivities[$country] ?? [];
+    }
+
+    private function getCitySpecificActivities(string $city): array
+    {
+        $cityActivities = [
+            'New York' => ['Broadway shows', 'statue of liberty tours'],
+            'Paris' => ['eiffel tower visits', 'louvre tours'],
+            'Venice' => ['gondola rides', 'glass blowing workshops'],
+            'Rome' => ['colosseum tours', 'vatican visits'],
+            'Tokyo' => ['robot restaurant', 'sushi making classes'],
+            'London' => ['big ben tours', 'afternoon tea'],
+            'Bangkok' => ['floating markets', 'temple hopping'],
+            'Sydney' => ['opera house tours', 'harbour bridge climbing'],
+            'Dubai' => ['burj khalifa visits', 'desert safaris'],
+            'Istanbul' => ['bosphorus cruises', 'grand bazaar shopping'],
+            'Barcelona' => ['sagrada familia tours', 'gaudi architecture walks'],
+            'Amsterdam' => ['canal cruises', 'bike tours'],
+            'Prague' => ['castle tours', 'beer tasting'],
+            'Vienna' => ['classical concerts', 'coffee house visits'],
+            'Cairo' => ['pyramid of giza tours', 'egyptian museum visits'],
+            'Marrakech' => ['medina walking tours', 'djemaa el-fna visits'],
+            'Cusco' => ['machu picchu excursions', 'sacred valley tours'],
+            'Kyoto' => ['bamboo forest walks', 'geisha district tours']
+        ];
+
+        return $cityActivities[$city] ?? [];
+    }
+
+    private function getCountrySpecificTags(string $country): array
+    {
+        $countryTags = [
+            'Japan' => ['traditional', 'zen', 'tech-savvy'],
+            'Italy' => ['romantic', 'artistic', 'culinary'],
+            'France' => ['elegant', 'sophisticated', 'fashion'],
+            'Spain' => ['vibrant', 'passionate', 'festive'],
+            'Mexico' => ['colorful', 'spicy', 'festive'],
+            'India' => ['spiritual', 'diverse', 'exotic'],
+            'Thailand' => ['friendly', 'tropical', 'buddhist'],
+            'Egypt' => ['ancient', 'mysterious', 'historical'],
+            'Peru' => ['mystical', 'indigenous', 'adventurous'],
+            'China' => ['ancient', 'bustling', 'diverse'],
+            'Brazil' => ['energetic', 'carnival', 'tropical'],
+            'Morocco' => ['exotic', 'spice-filled', 'desert'],
+            'Greece' => ['mythological', 'island-hopping', 'mediterranean'],
+            'Turkey' => ['cultural-bridge', 'historical', 'diverse'],
+            'Vietnam' => ['authentic', 'street-food', 'scenic'],
+            'Indonesia' => ['tropical-paradise', 'volcanic', 'diverse']
+        ];
+
+        return $countryTags[$country] ?? [];
     }
 }

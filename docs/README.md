@@ -82,6 +82,23 @@ Comprehensive overview of all TravelBot features and capabilities.
 - Accessibility features and responsive design
 - Security features and data protection
 
+### [Vector Search & AI-Powered Seeding](./pgvector-ai/README.md)
+Deep dive into the semantic vector search system and intelligent data generation.
+
+**What you'll find:**
+- Complete pgvector + AWS Bedrock integration architecture
+- AI-powered seed system generating realistic travel data
+- Vector similarity search across destinations, resorts, and amenities
+- Async embedding generation with Symfony Messenger
+- Performance optimization with HNSW indexes
+
+**Key Topics:**
+- 1024-dimensional Titan V2 embeddings and cosine distance mathematics
+- Database seeding with intelligent entity relationships
+- PostgreSQL pgvector extension and custom Doctrine middleware
+- Semantic search examples and query optimization
+- Production monitoring and health checks
+
 ## 🔧 Operations
 
 ### [Operations Guide](./operations/README.md)
@@ -124,8 +141,10 @@ Production operations, monitoring, troubleshooting, and maintenance procedures.
 |-------|-------------|
 | **Frontend** | Twig Templates, Hotwire Turbo, Tailwind CSS 4, Vanilla JavaScript |
 | **Backend** | Symfony 7.3, PHP 8.3, Doctrine ORM, Server-Sent Events |
-| **AI Integration** | OpenAI GPT, Custom Travel Prompting, Real-time Streaming |
-| **Database** | PostgreSQL 17, Doctrine Migrations, Connection Pooling |
+| **AI Integration** | OpenAI GPT, AWS Bedrock Titan V2, Custom Travel Prompting, Real-time Streaming |
+| **Vector Search** | PostgreSQL pgvector, HNSW Indexes, 1024-dim Embeddings, Cosine Distance |
+| **Database** | PostgreSQL 17, Doctrine Migrations, Connection Pooling, Custom Platform Middleware |
+| **Async Processing** | Symfony Messenger, Database Transport, Retry Strategies, Queue Management |
 | **Infrastructure** | AWS ECS Fargate, ALB, Route53, ECR, RDS, Secrets Manager |
 | **DevOps** | GitHub Actions, AWS CDK, Docker, Rolling Deployment |
 | **Monitoring** | CloudWatch, Application Logging, Health Checks |
@@ -135,13 +154,18 @@ Production operations, monitoring, troubleshooting, and maintenance procedures.
 
 ### Core Features
 - ✅ **Real-time AI Chat**: Streaming conversations with travel expertise
+- ✅ **Semantic Vector Search**: AI-powered similarity search across travel entities
 - ✅ **Travel Recommendations**: Personalized destination and itinerary suggestions
+- ✅ **Intelligent Data Seeding**: AI-generated realistic travel datasets
 - ✅ **User Management**: Secure authentication and session management
 - ✅ **Multi-Conversations**: Organized travel planning across multiple trips
 - ✅ **Responsive Design**: Mobile-first interface with accessibility support
 
 ### Technical Features
 - ✅ **Microservices Architecture**: Modular, scalable design
+- ✅ **Vector Database Integration**: PostgreSQL pgvector with HNSW indexes
+- ✅ **Async Processing**: Symfony Messenger with database queuing
+- ✅ **AI/ML Integration**: AWS Bedrock Titan embeddings with caching
 - ✅ **Infrastructure as Code**: Full AWS CDK implementation
 - ✅ **CI/CD Pipeline**: Automated building, deployment, and releases
 - ✅ **Security First**: Comprehensive security at all layers

@@ -34,20 +34,6 @@ class ResortRepository extends ServiceEntityRepository
         }
     }
 
-    /**
-     * Find similar resorts using vector similarity
-     */
-    public function findSimilarResorts(array $queryVector, int $limit = 20): array
-    {
-        return $this->createQueryBuilder('r')
-            ->select('r', 'COSINE_SIMILARITY(r.embedding, :queryVector) AS similarity')
-            ->where('r.embedding IS NOT NULL')
-            ->setParameter('queryVector', $queryVector)
-            ->orderBy('similarity', 'DESC')
-            ->setMaxResults($limit)
-            ->getQuery()
-            ->getResult();
-    }
 
     /**
      * Find resorts with minimum star rating

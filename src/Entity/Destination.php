@@ -58,6 +58,9 @@ class Destination
     #[ORM\Column(type: Types::INTEGER, nullable: true)]
     private ?int $popularityScore = null;
 
+    #[ORM\Column(type: 'vector', length: 1024, nullable: true)]
+    private ?array $embedding = null;
+
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private ?\DateTimeInterface $createdAt = null;
 
@@ -219,6 +222,17 @@ class Destination
     public function setPopularityScore(?int $popularityScore): static
     {
         $this->popularityScore = $popularityScore;
+        return $this;
+    }
+
+    public function getEmbedding(): ?array
+    {
+        return $this->embedding;
+    }
+
+    public function setEmbedding(?array $embedding): static
+    {
+        $this->embedding = $embedding;
         return $this;
     }
 

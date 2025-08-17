@@ -34,18 +34,4 @@ class ResortCategoryRepository extends ServiceEntityRepository
         }
     }
 
-    /**
-     * Find similar categories using vector similarity
-     */
-    public function findSimilarCategories(array $queryVector, int $limit = 10): array
-    {
-        return $this->createQueryBuilder('rc')
-            ->select('rc', 'COSINE_SIMILARITY(rc.embedding, :queryVector) AS similarity')
-            ->where('rc.embedding IS NOT NULL')
-            ->setParameter('queryVector', $queryVector)
-            ->orderBy('similarity', 'DESC')
-            ->setMaxResults($limit)
-            ->getQuery()
-            ->getResult();
-    }
 }
