@@ -31,6 +31,7 @@ graph TB
         Q[ECR] --> O
         R[RDS PostgreSQL] --> I
         S[Secrets Manager] --> O
+        T[CloudWatch Logs] --> O
     end
     
     A --> F
@@ -67,7 +68,7 @@ graph TB
 - **Route53**: DNS management with health checks
 - **ECR**: Container image registry
 - **Secrets Manager**: Secure credential storage
-- **CloudWatch**: Logging and monitoring
+- **CloudWatch Logs**: Application and container logging
 
 ## Core Components
 
@@ -162,10 +163,10 @@ Frontend JS → Server-Sent Events → Streaming Controller → AI Service → O
 - **Caching Strategy**: Application-level caching
 
 ### Monitoring & Observability
-- **CloudWatch Integration**: Comprehensive metrics
+- **CloudWatch Logs**: Centralized application logging
 - **Application Logging**: Structured logging with context
-- **Health Checks**: Automated system monitoring
-- **Error Tracking**: Centralized error management
+- **Health Checks**: ECS and ALB health monitoring
+- **Error Tracking**: Application-level error logging
 
 ## Development Architecture
 
@@ -201,8 +202,8 @@ migrations/        # Database migrations
 
 ### Infrastructure as Code
 - **AWS CDK**: TypeScript-based infrastructure
-- **Blue/Green Deployment**: Zero-downtime releases
-- **Automated Rollback**: Safety mechanisms
+- **Rolling Deployment**: Zero-downtime ECS updates
+- **Automated Rollback**: ECS service rollback capabilities
 - **Environment Isolation**: Separate dev/staging/prod
 
 This architecture provides a robust, scalable, and maintainable foundation for the TravelBot application, with modern development practices and production-ready infrastructure.

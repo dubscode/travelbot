@@ -10,7 +10,7 @@ This guide covers the operational aspects of TravelBot, including deployment pro
 - **URL**: https://travelbot.tech
 - **Infrastructure**: AWS ECS Fargate
 - **Database**: RDS PostgreSQL 17
-- **Monitoring**: CloudWatch + Application metrics
+- **Monitoring**: CloudWatch Logs + ECS metrics
 - **SSL**: AWS Certificate Manager with Route53
 
 ### Staging Environment
@@ -35,9 +35,9 @@ Deployments are automatically triggered on pushes to the `main` branch:
 # Automatic deployment flow
 git push origin main
 # → Triggers CI/CD pipeline
-# → Runs tests and security scans
+# → Runs security scans
 # → Builds Docker image
-# → Deploys to ECS with blue/green strategy
+# → Deploys to ECS with rolling updates
 ```
 
 #### Manual Deployment via GitHub Actions
@@ -107,16 +107,16 @@ npx cdk deploy --context environment=production --require-approval broadening
 
 ## Monitoring and Alerting
 
-### CloudWatch Dashboards
+### System Monitoring
 
-#### Application Dashboard
-Access via AWS Console → CloudWatch → Dashboards → "TravelBot-Monitoring"
+#### Built-in Monitoring
+Available through AWS Console and CLI:
 
 **Key Metrics:**
-- ECS Service CPU/Memory utilization
-- Application Load Balancer request count
-- Database connections and performance
-- Error rates and response times
+- ECS Service CPU/Memory utilization (via CloudWatch)
+- Application Load Balancer health checks and metrics
+- RDS database performance and connections
+- CloudWatch Logs for application and container logs
 
 #### ECS Service Monitoring
 ```bash
@@ -166,15 +166,14 @@ aws rds download-db-log-file-portion \
   --log-file-name postgresql.log
 ```
 
-### Alert Configuration
+### Health Monitoring
 
-#### Critical Alerts
-Configured CloudWatch alarms for:
-- **High CPU utilization** (>80% for 3 consecutive periods)
-- **High memory utilization** (>80% for 3 consecutive periods)
-- **Database connection errors**
-- **High error rate** (>5% for 5 minutes)
-- **Service health check failures**
+#### Built-in Health Checks
+ECS and ALB provide automated health monitoring:
+- **ECS Task Health**: Container-level health monitoring
+- **ALB Target Health**: Application endpoint health checks
+- **Auto Scaling**: CPU and memory-based scaling triggers
+- **Application Logs**: Centralized logging via CloudWatch
 
 #### Alert Response Procedures
 1. **Immediate Response** (5 minutes)

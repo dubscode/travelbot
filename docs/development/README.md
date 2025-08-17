@@ -488,7 +488,7 @@ docker-compose exec php ./vendor/bin/phpunit
 1. **Feature Development**
    - Create feature branch from `main`
    - Implement changes
-   - Run quality checks locally
+   - Review code and run manual tests locally
    - Submit pull request
 
 2. **Code Review Process**

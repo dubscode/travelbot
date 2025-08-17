@@ -53,7 +53,7 @@ Detailed AWS infrastructure setup using CDK and modern DevOps practices.
 - AWS CDK stack structure and configuration
 - ECS Fargate deployment architecture
 - Security groups, IAM roles, and permissions
-- Monitoring, logging, and alerting setup
+- Logging setup and system monitoring
 - SSL/TLS configuration and DNS management
 
 **Key Topics:**
@@ -89,14 +89,14 @@ Production operations, monitoring, troubleshooting, and maintenance procedures.
 
 **What you'll find:**
 - Deployment procedures and rollback strategies
-- Monitoring, alerting, and log management
+- Log management and system monitoring
 - Database operations and backup procedures
 - Security operations and incident response
 - Performance optimization and cost management
 
 **Key Topics:**
 - Automated CI/CD deployment via GitHub Actions
-- CloudWatch monitoring and alerting
+- CloudWatch logging and monitoring
 - Database backup and recovery procedures
 - Emergency access and troubleshooting guides
 - Maintenance windows and cost optimization
@@ -127,7 +127,7 @@ Production operations, monitoring, troubleshooting, and maintenance procedures.
 | **AI Integration** | OpenAI GPT, Custom Travel Prompting, Real-time Streaming |
 | **Database** | PostgreSQL 17, Doctrine Migrations, Connection Pooling |
 | **Infrastructure** | AWS ECS Fargate, ALB, Route53, ECR, RDS, Secrets Manager |
-| **DevOps** | GitHub Actions, AWS CDK, Docker, Blue/Green Deployment |
+| **DevOps** | GitHub Actions, AWS CDK, Docker, Rolling Deployment |
 | **Monitoring** | CloudWatch, Application Logging, Health Checks |
 | **Security** | HTTPS, IAM Roles, VPC, Security Groups, OIDC |
 
@@ -143,12 +143,12 @@ Production operations, monitoring, troubleshooting, and maintenance procedures.
 ### Technical Features
 - ✅ **Microservices Architecture**: Modular, scalable design
 - ✅ **Infrastructure as Code**: Full AWS CDK implementation
-- ✅ **CI/CD Pipeline**: Automated building and deployment
+- ✅ **CI/CD Pipeline**: Automated building, deployment, and releases
 - ✅ **Security First**: Comprehensive security at all layers
 - ✅ **Monitoring & Observability**: Full application and infrastructure monitoring
 
 ### Operational Features
-- ✅ **Blue/Green Deployment**: Zero-downtime deployments
+- ✅ **Rolling Deployment**: Zero-downtime deployments
 - ✅ **Auto Scaling**: Responsive to demand changes
 - ✅ **Backup & Recovery**: Automated backup with point-in-time recovery
 - ✅ **Cost Optimization**: Resource right-sizing and cost monitoring
@@ -162,13 +162,13 @@ Production operations, monitoring, troubleshooting, and maintenance procedures.
 
 ### AWS Resources
 - **Production URL**: [https://travelbot.tech](https://travelbot.tech)
-- **AWS Console**: ECS Services, RDS Instances, CloudWatch Dashboards
-- **ECR Repository**: Container images and vulnerability scans
+- **AWS Console**: ECS Services, RDS Instances, CloudWatch Logs
+- **ECR Repository**: Container images
 
 ### Development Tools
 - **Local Development**: Docker Compose for full stack
-- **Code Quality**: PHP-CS-Fixer, PHPStan, ESLint
-- **Testing**: PHPUnit configured, manual testing, security scanning
+- **Code Quality**: Manual review and best practices
+- **Testing**: PHPUnit configured (no tests yet), manual testing, security scanning
 
 ## 📞 Support and Contribution
 

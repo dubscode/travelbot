@@ -9,7 +9,7 @@ TravelBot infrastructure is managed using AWS CDK (Cloud Development Kit) with T
 ```mermaid
 graph TB
     subgraph "Internet"
-        U[Users] --> CF[CloudFront]
+        U[Users]
     end
     
     subgraph "AWS Account"
@@ -32,7 +32,7 @@ graph TB
         subgraph "Security & Storage"
             ECR[Elastic Container Registry]
             SM[Secrets Manager]
-            CW[CloudWatch]
+            CWL[CloudWatch Logs]
             IAM[IAM Roles]
         end
         
@@ -42,12 +42,12 @@ graph TB
         end
     end
     
-    CF --> DNS
+    U --> DNS
     DNS --> ALB
     ALB --> ECS
     ECS --> RDS
     ECS --> SM
-    ECS --> CW
+    ECS --> CWL
     
     GHA --> OIDC
     OIDC --> IAM
@@ -291,46 +291,13 @@ const logGroup = new logs.LogGroup(this, 'TravelbotLogGroup', {
 });
 ```
 
-#### Metrics and Alarms
-```typescript
-// High CPU utilization alarm
-const cpuAlarm = new cloudwatch.Alarm(this, 'HighCpuAlarm', {
-  metric: service.metricCpuUtilization(),
-  threshold: 80,
-  evaluationPeriods: 3,
-  treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
-});
+#### Health Monitoring
+ECS and ALB provide built-in health checks and monitoring:
 
-// Memory utilization alarm
-const memoryAlarm = new cloudwatch.Alarm(this, 'HighMemoryAlarm', {
-  metric: service.metricMemoryUtilization(),
-  threshold: 80,
-  evaluationPeriods: 3,
-});
-```
-
-#### Dashboard
-```typescript
-const dashboard = new cloudwatch.Dashboard(this, 'TravelbotDashboard', {
-  dashboardName: 'TravelBot-Monitoring',
-  widgets: [
-    [
-      new cloudwatch.GraphWidget({
-        title: 'ECS CPU and Memory Utilization',
-        left: [service.metricCpuUtilization()],
-        right: [service.metricMemoryUtilization()],
-      }),
-    ],
-    [
-      new cloudwatch.GraphWidget({
-        title: 'ALB Request Count and Target Response Time',
-        left: [loadBalancer.metricRequestCount()],
-        right: [targetGroup.metricTargetResponseTime()],
-      }),
-    ],
-  ],
-});
-```
+- **ECS Health Checks**: Container health monitored by ECS
+- **ALB Health Checks**: Target group health monitoring
+- **CloudWatch Logs**: Centralized application logging
+- **Auto Scaling**: CPU and memory-based scaling triggers
 
 ## SSL/TLS Configuration
 
@@ -394,7 +361,7 @@ scalableTarget.scaleOnMemoryUtilization('MemoryScaling', {
 
 ## Deployment Strategy
 
-### Blue/Green Deployment
+### Rolling Deployment
 The ECS service uses rolling updates with the following configuration:
 
 ```typescript

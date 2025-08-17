@@ -6,91 +6,53 @@ This directory contains the complete CI/CD pipeline for TravelBot, showcasing pr
 
 ```mermaid
 graph TB
-    A[Developer Push] --> B[CI Pipeline]
-    B --> C{Tests Pass?}
-    C -->|Yes| D[Build Docker Image]
-    C -->|No| E[❌ Fail Build]
-    D --> F[Security Scan]
-    F --> G{Vulnerabilities?}
-    G -->|Critical| H[❌ Block Deploy]
-    G -->|None/Low| I[Deploy to ECS]
-    I --> J[ECS Blue/Green]
-    J --> K[Health Checks]
-    K --> L[✅ Success]
-    K -->|Fail| M[Auto Rollback]
+    A[Developer Push] --> B[Build Docker Image]
+    B --> C[Security Scan]
+    C --> D{Vulnerabilities?}
+    D -->|Critical| E[❌ Block Deploy]
+    D -->|None/Low| F[Deploy to ECS]
+    F --> G[ECS Rolling Update]
+    G --> H[Health Checks]
+    H --> I[✅ Success]
+    H -->|Fail| J[Auto Rollback]
 ```
 
 ## 📋 Workflows
 
-### 1. 🔍 Continuous Integration (`ci.yml`)
-**Triggers:** Push to main/develop, Pull Requests
-
-**Features:**
-- **Multi-language testing**: PHP (PHPUnit, PHPStan) and JavaScript/TypeScript
-- **Code quality**: PHP-CS-Fixer, ESLint, Stylelint
-- **Security scanning**: Trivy, GitHub CodeQL, Secret scanning
-- **Docker validation**: Multi-stage build testing
-- **CDK validation**: TypeScript compilation and synth testing
-- **Parallel execution**: All jobs run concurrently for speed
-
-**Key DevOps Practices:**
-- Dependency caching for faster builds
-- Matrix testing across PHP versions
-- Comprehensive security scanning
-- Fail-fast approach with detailed reporting
-
-### 2. 🚀 Production Deployment (`deploy.yml`)
+### 1. 🚀 Production Deployment (`deploy.yml`)
 **Triggers:** Push to main, Manual dispatch with rollback option
 
 **Features:**
 - **Smart deployment detection**: Only deploys when application code changes
-- **Blue/Green deployment**: Zero-downtime using ECS service updates
+- **Rolling deployment**: Zero-downtime using ECS service updates
 - **OIDC authentication**: No long-lived AWS credentials
 - **Automatic rollback**: Built into ECS deployment strategy
-- **Comprehensive monitoring**: Real-time deployment tracking
+- **Security scanning**: Trivy vulnerability scanning
 
-**Deployment Flow:**
-1. **Pre-deployment validation**: Check for code changes
-2. **Docker build & push**: Multi-arch support with caching
-3. **ECS deployment**: Update service with new task definition
-4. **Health monitoring**: ECS handles health checks and rollback
-5. **Notifications**: Slack integration for team visibility
-
-### 3. 🏗️ Infrastructure Deployment (`infrastructure.yml`)
+### 2. 🏗️ Infrastructure Deployment (`infrastructure.yml`)
 **Triggers:** CDK changes, Manual dispatch with stack selection
 
 **Features:**
 - **Infrastructure as Code**: Full AWS infrastructure via CDK
 - **Change detection**: Automatic diff analysis on PRs
-- **Cost awareness**: Template generation for cost estimation
-- **Drift detection**: Post-deployment infrastructure validation
 - **Safety checks**: Destructive change detection and approval gates
 
-**Infrastructure Components:**
-- **ECS Fargate**: Containerized application hosting
-- **Application Load Balancer**: HTTP/HTTPS traffic distribution
-- **ECR**: Container image registry
-- **Secrets Manager**: Secure credential storage
-- **Route53**: DNS management with SSL certificates
-
-### 4. 🎉 Release Management (`release.yml`)
+### 3. 🎉 Release Management (`release.yml`)
 **Triggers:** Main branch pushes, Manual dispatch
 
 **Features:**
 - **Semantic versioning**: Automatic version detection from commits
-- **Conventional commits**: Standard commit message parsing
-- **Automated changelog**: Generated from commit messages
-- **Release artifacts**: Source archives and Docker images
-- **Multi-channel notifications**: Slack, email, GitHub releases
+- **Automated release**: GitHub releases with changelogs
+- **Security scanning**: Trivy vulnerability scanning
+- **Docker image tagging**: Versioned container images
 
-### 5. 🐳 Reusable Docker Build (`reusable-docker-build.yml`)
+### 4. 🐳 Reusable Docker Build (`reusable-docker-build.yml`)
 **Type:** Reusable workflow for consistent Docker operations
 
 **Features:**
 - **Multi-architecture support**: AMD64 and ARM64 builds
-- **Security-first**: Trivy and Docker Scout scanning
+- **Security scanning**: Trivy vulnerability detection
 - **Build optimization**: Layer caching and build args
-- **Provenance & SBOM**: Supply chain security
 - **Flexible configuration**: Customizable for different projects
 
 ## 🔧 Utilities & Scripts
@@ -109,23 +71,21 @@ Extracts ECS deployment metadata for workflow decision-making.
 - **Audit trail**: All actions logged through CloudTrail
 
 ### 🔍 Security Scanning
-- **Container vulnerabilities**: Trivy and Docker Scout
-- **Code analysis**: GitHub CodeQL and Super Linter
-- **Secret detection**: TruffleHog integration
+- **Container vulnerabilities**: Trivy scanning
 - **Dependency scanning**: Automated vulnerability checks
 
 ### 🚨 Failure Handling
 - **Automatic rollback**: ECS handles failed deployments
 - **Circuit breakers**: Critical vulnerability blocking
-- **Monitoring integration**: CloudWatch metrics and alarms
+- **Health monitoring**: ECS and ALB health checks
 
 ## 🚀 Deployment Strategies
 
-### Blue/Green Deployment with ECS
-The pipeline leverages ECS's built-in blue/green deployment capabilities:
+### Rolling Deployment with ECS
+The pipeline uses ECS's rolling deployment strategy:
 
 1. **New task definition**: Created with updated container image
-2. **Service update**: ECS gradually shifts traffic to new tasks
+2. **Service update**: ECS gradually replaces tasks with new versions
 3. **Health checks**: Application Load Balancer monitors task health
 4. **Automatic rollback**: ECS reverts if health checks fail
 5. **Zero downtime**: Traffic seamlessly transitions between versions
@@ -146,17 +106,17 @@ CDK deployments use CloudFormation's change sets for safe infrastructure updates
 - **Resource usage**: Optimize runner costs
 
 ### AWS Integration
-- **CloudWatch**: Application and infrastructure metrics
-- **X-Ray**: Distributed tracing (if configured)
+- **CloudWatch Logs**: Application and container logging
+- **ECS metrics**: Built-in service monitoring
 - **Cost tracking**: Tag-based cost allocation
 
 ## 🎯 Best Practices Demonstrated
 
 ### 1. **Security-First Approach**
-- Multi-layer security scanning
+- Container vulnerability scanning
 - No hardcoded secrets
 - Principle of least privilege
-- Supply chain security
+- OIDC authentication
 
 ### 2. **Performance Optimization**
 - Parallel job execution
@@ -165,7 +125,6 @@ CDK deployments use CloudFormation's change sets for safe infrastructure updates
 - Resource-aware builds
 
 ### 3. **Reliability & Resilience**
-- Comprehensive testing
 - Automatic rollback mechanisms
 - Health monitoring
 - Error handling and notifications
@@ -182,28 +141,24 @@ CDK deployments use CloudFormation's change sets for safe infrastructure updates
 - Cleanup automation
 - Cost tracking and optimization
 
-## 🎭 Interview Talking Points
+## 💡 Key Technical Capabilities
 
 This CI/CD pipeline demonstrates:
 
 1. **Infrastructure as Code expertise** with AWS CDK
 2. **Container orchestration** knowledge with ECS
-3. **Security-first mindset** with comprehensive scanning
+3. **Security-first mindset** with vulnerability scanning
 4. **Performance optimization** through caching and parallelization
-5. **Production deployment patterns** with blue/green strategies
-6. **Monitoring and observability** integration
+5. **Production deployment patterns** with rolling updates
+6. **Monitoring and logging** integration
 7. **Cost optimization** awareness
-8. **Team collaboration** through notifications and documentation
+8. **Team collaboration** through automated workflows
 
 ## 🔧 Configuration
 
 ### Required Secrets
 ```bash
-AWS_ACCOUNT_ID          # Your AWS account ID
-SLACK_WEBHOOK_URL       # Slack notifications (optional)
-GMAIL_USERNAME          # Email notifications (optional)
-GMAIL_PASSWORD          # Email notifications (optional)
-TEAM_EMAIL_LIST        # Team email distribution (optional)
+AWS_OIDC_ASSUME_ROLE_ARN  # AWS role ARN for OIDC authentication
 ```
 
 ### Environment Variables
@@ -217,5 +172,3 @@ The workflows automatically detect and use:
 The CDK stack creates the necessary OIDC provider and IAM roles automatically.
 
 ---
-
-*This pipeline represents production-ready DevOps practices suitable for enterprise environments while maintaining simplicity and cost-effectiveness.*
