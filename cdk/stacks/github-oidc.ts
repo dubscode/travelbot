@@ -48,5 +48,11 @@ export class GitHubOidcStack extends cdk.Stack {
       description: 'Name of the GitHub Actions role',
       exportName: 'TravelBot-GitHubActionsRoleName',
     });
+
+    new cdk.CfnOutput(this, 'GitHubActionsRoleArnParameter', {
+      value: '/travelbot/github-actions-role-arn',
+      description: 'SSM Parameter name containing the GitHub Actions role ARN',
+      exportName: 'TravelBot-GitHubActionsRoleArnParameter',
+    });
   }
 }

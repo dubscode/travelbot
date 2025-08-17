@@ -1,0 +1,430 @@
+name: 🏗️ Infrastructure Deployment
+
+on:
+  push:
+    paths:
+      - 'cdk/**'
+    branches: [ main ]
+  pull_request:
+    paths:
+      - 'cdk/**'
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      stack_name:
+        description: 'Stack to deploy (TravelbotStack, TravelbotGitHubOidcStack, or all)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - 'all'
+          - 'TravelbotStack'
+          - 'TravelbotGitHubOidcStack'
+      destroy_stack:
+        description: 'Destroy stack instead of deploy'
+        required: false
+        default: false
+        type: boolean
+      approve_changes:
+        description: 'Auto-approve changes (skip manual approval)'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: infrastructure-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-west-2
+  CDK_VERSION: latest
+  NODE_VERSION: '22'
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  # ==================================================================================
+  # CDK Validation and Preparation
+  # ==================================================================================
+  prepare:
+    name: 🔍 CDK Validation & Preparation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: ./cdk
+
+    outputs:
+      should_deploy: ${{ steps.check.outputs.should_deploy }}
+      stacks_to_deploy: ${{ steps.check.outputs.stacks_to_deploy }}
+      has_changes: ${{ steps.diff.outputs.has_changes }}
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: 🟢 Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: cdk/package-lock.json
+
+      - name: 📦 Install CDK dependencies
+        run: npm ci
+
+      - name: 🔧 Install AWS CDK CLI
+        run: npm install -g aws-cdk@${{ env.CDK_VERSION }}
+
+      - name: 🔍 TypeScript compilation
+        run: npm run build
+
+      - name: 🏗️ Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ASSUME_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-CDK-Prepare
+
+      - name: 🔧 CDK Bootstrap check
+        run: |
+          echo "🔍 Checking CDK bootstrap status..."
+          if ! cdk bootstrap --show-template >/dev/null 2>&1; then
+            echo "❌ CDK not bootstrapped in this region"
+            exit 1
+          fi
+          echo "✅ CDK bootstrap verified"
+
+      - name: 📋 Determine deployment strategy
+        id: check
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            STACKS="${{ github.event.inputs.stack_name }}"
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+            echo "🚀 Manual deployment requested for: $STACKS"
+          elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+            STACKS="all"
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+            echo "🚀 Main branch push detected, deploying all stacks"
+          else
+            STACKS="all"
+            echo "should_deploy=false" >> $GITHUB_OUTPUT
+            echo "🔍 Pull request detected, running diff only"
+          fi
+          
+          if [[ "$STACKS" == "all" ]]; then
+            echo "stacks_to_deploy=TravelbotGitHubOidcStack TravelbotStack" >> $GITHUB_OUTPUT
+          else
+            echo "stacks_to_deploy=$STACKS" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 🔍 CDK Diff Analysis
+        id: diff
+        run: |
+          echo "🔍 Analyzing infrastructure changes..."
+          
+          HAS_CHANGES=false
+          DIFF_OUTPUT=""
+          
+          for STACK in ${{ steps.check.outputs.stacks_to_deploy }}; do
+            echo "📊 Running diff for $STACK..."
+            
+            if DIFF_RESULT=$(cdk diff $STACK 2>&1); then
+              if echo "$DIFF_RESULT" | grep -q "There were no differences"; then
+                echo "✅ No changes detected in $STACK"
+              else
+                echo "📋 Changes detected in $STACK:"
+                echo "$DIFF_RESULT"
+                HAS_CHANGES=true
+                DIFF_OUTPUT="$DIFF_OUTPUT\n\n## Stack: $STACK\n\`\`\`\n$DIFF_RESULT\n\`\`\`"
+              fi
+            else
+              echo "❌ Error running diff for $STACK: $DIFF_RESULT"
+              exit 1
+            fi
+          done
+          
+          echo "has_changes=$HAS_CHANGES" >> $GITHUB_OUTPUT
+          
+          # Save diff output for PR comment
+          if [[ "${{ github.event_name }}" == "pull_request" && "$HAS_CHANGES" == "true" ]]; then
+            echo "DIFF_OUTPUT<<EOF" >> $GITHUB_ENV
+            echo -e "$DIFF_OUTPUT" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
+          fi
+
+      - name: 💰 CDK Cost Estimation
+        if: steps.diff.outputs.has_changes == 'true'
+        run: |
+          echo "💰 Estimating infrastructure costs..."
+          
+          # Synthesize the stacks to get CloudFormation templates
+          cdk synth ${{ steps.check.outputs.stacks_to_deploy }}
+          
+          echo "📊 CloudFormation templates generated successfully"
+          echo "💡 For detailed cost analysis, use AWS Cost Calculator with the generated templates"
+
+      - name: 💬 Comment on PR with diff
+        if: github.event_name == 'pull_request' && steps.diff.outputs.has_changes == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const diffOutput = process.env.DIFF_OUTPUT;
+            const comment = `## 🏗️ Infrastructure Changes Detected
+            
+            The following changes will be applied to your AWS infrastructure:
+            
+            ${diffOutput}
+            
+            ### ⚠️ Important Notes:
+            - Review these changes carefully before merging
+            - Some changes may cause resource replacement
+            - Check for any security group or IAM policy changes
+            - Verify that database changes won't cause data loss
+            
+            ### 🚀 Next Steps:
+            - Merge this PR to apply changes automatically
+            - Or use manual workflow dispatch for selective deployment
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  # ==================================================================================
+  # Infrastructure Deployment
+  # ==================================================================================
+  deploy:
+    name: 🚀 Deploy Infrastructure
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: needs.prepare.outputs.should_deploy == 'true' && (needs.prepare.outputs.has_changes == 'true' || github.event.inputs.approve_changes == 'true')
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: ./cdk
+
+    environment:
+      name: ${{ github.event.inputs.destroy_stack == 'true' && 'infrastructure-destroy' || 'infrastructure' }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: ['TravelbotGitHubOidcStack', 'TravelbotStack']
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: cdk/package-lock.json
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🔧 Install AWS CDK CLI
+        run: npm install -g aws-cdk@${{ env.CDK_VERSION }}
+
+      - name: 🏗️ Build CDK
+        run: npm run build
+
+      - name: 🏗️ Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ASSUME_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-CDK-Deploy-${{ matrix.stack }}
+
+      - name: 🗂️ Create deployment artifact
+        run: |
+          echo "📦 Creating deployment artifact for ${{ matrix.stack }}..."
+          mkdir -p deployment-artifacts
+          
+          # Generate CloudFormation template
+          cdk synth ${{ matrix.stack }} --output deployment-artifacts/
+          
+          # Save deployment metadata
+          cat > deployment-artifacts/deployment-info.json << EOF
+          {
+            "stack": "${{ matrix.stack }}",
+            "repository": "${{ github.repository }}",
+            "commit": "${{ github.sha }}",
+            "branch": "${{ github.ref_name }}",
+            "deployment_time": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "actor": "${{ github.actor }}",
+            "run_id": "${{ github.run_id }}"
+          }
+          EOF
+
+      - name: 🚨 Pre-deployment safety checks
+        run: |
+          echo "🚨 Running pre-deployment safety checks for ${{ matrix.stack }}..."
+          
+          # Check for destructive changes
+          if cdk diff ${{ matrix.stack }} | grep -E "(Remove|Delete|Replace)"; then
+            echo "⚠️ Destructive changes detected!"
+            echo "📋 Please review the following changes carefully:"
+            cdk diff ${{ matrix.stack }} | grep -E "(Remove|Delete|Replace)"
+            
+            if [[ "${{ github.event.inputs.approve_changes }}" != "true" ]]; then
+              echo "❌ Destructive changes require manual approval"
+              echo "🔧 Use workflow_dispatch with approve_changes=true to proceed"
+              exit 1
+            fi
+          fi
+          
+          # Check if stack exists
+          if aws cloudformation describe-stacks --stack-name ${{ matrix.stack }} >/dev/null 2>&1; then
+            echo "✅ Stack ${{ matrix.stack }} exists, proceeding with update"
+          else
+            echo "🆕 Stack ${{ matrix.stack }} doesn't exist, proceeding with creation"
+          fi
+
+      - name: 🚀 Deploy CDK Stack
+        if: github.event.inputs.destroy_stack != 'true'
+        run: |
+          echo "🚀 Deploying ${{ matrix.stack }}..."
+          
+          # Deploy with progress tracking
+          cdk deploy ${{ matrix.stack }} \
+            --require-approval never \
+            --progress events \
+            --outputs-file deployment-artifacts/outputs.json \
+            --verbose
+          
+          echo "✅ Stack ${{ matrix.stack }} deployed successfully"
+
+      - name: 🗑️ Destroy CDK Stack
+        if: github.event.inputs.destroy_stack == 'true'
+        run: |
+          echo "🗑️ Destroying ${{ matrix.stack }}..."
+          
+          cdk destroy ${{ matrix.stack }} --force --verbose
+          
+          echo "✅ Stack ${{ matrix.stack }} destroyed successfully"
+
+      - name: 📊 Post-deployment validation
+        if: github.event.inputs.destroy_stack != 'true'
+        run: |
+          echo "📊 Validating deployment of ${{ matrix.stack }}..."
+          
+          # Check stack status
+          STACK_STATUS=$(aws cloudformation describe-stacks \
+            --stack-name ${{ matrix.stack }} \
+            --query 'Stacks[0].StackStatus' --output text)
+          
+          echo "📋 Stack Status: $STACK_STATUS"
+          
+          if [[ "$STACK_STATUS" == "CREATE_COMPLETE" || "$STACK_STATUS" == "UPDATE_COMPLETE" ]]; then
+            echo "✅ Stack deployment validation passed"
+          else
+            echo "❌ Stack deployment validation failed"
+            exit 1
+          fi
+          
+          # List stack outputs
+          echo "📋 Stack Outputs:"
+          aws cloudformation describe-stacks \
+            --stack-name ${{ matrix.stack }} \
+            --query 'Stacks[0].Outputs[*].[OutputKey,OutputValue]' \
+            --output table
+
+      - name: 📤 Upload deployment artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-artifacts-${{ matrix.stack }}
+          path: cdk/deployment-artifacts/
+          retention-days: 30
+
+  # ==================================================================================
+  # Drift Detection
+  # ==================================================================================
+  drift-detection:
+    name: 🔍 Infrastructure Drift Detection
+    runs-on: ubuntu-latest
+    needs: [prepare, deploy]
+    if: always() && needs.prepare.outputs.should_deploy == 'true' && needs.deploy.result == 'success'
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ./cdk
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: cdk/package-lock.json
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🔧 Install AWS CDK CLI
+        run: npm install -g aws-cdk@${{ env.CDK_VERSION }}
+
+      - name: 🏗️ Build CDK
+        run: npm run build
+
+      - name: 🏗️ Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ASSUME_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-CDK-DriftDetection
+
+      - name: 🔍 Run drift detection
+        run: |
+          echo "🔍 Running infrastructure drift detection..."
+          
+          for STACK in ${{ needs.prepare.outputs.stacks_to_deploy }}; do
+            echo "📊 Checking drift for $STACK..."
+            
+            # Start drift detection
+            DRIFT_ID=$(aws cloudformation detect-stack-drift \
+              --stack-name $STACK \
+              --query 'StackDriftDetectionId' --output text)
+            
+            echo "🔍 Drift detection started with ID: $DRIFT_ID"
+            
+            # Wait for drift detection to complete
+            aws cloudformation wait stack-drift-detection-complete \
+              --stack-drift-detection-id $DRIFT_ID
+            
+            # Get drift detection results
+            DRIFT_STATUS=$(aws cloudformation describe-stack-drift-detection-status \
+              --stack-drift-detection-id $DRIFT_ID \
+              --query 'StackDriftStatus' --output text)
+            
+            echo "📋 Drift Status for $STACK: $DRIFT_STATUS"
+            
+            if [[ "$DRIFT_STATUS" == "DRIFTED" ]]; then
+              echo "⚠️ Stack $STACK has drifted!"
+              
+              # Get detailed drift information
+              aws cloudformation describe-stack-resource-drifts \
+                --stack-name $STACK \
+                --query 'StackResourceDrifts[?StackResourceDriftStatus==`MODIFIED`].[LogicalResourceId,ResourceType,StackResourceDriftStatus]' \
+                --output table
+            else
+              echo "✅ Stack $STACK is in sync"
+            fi
+          done
+

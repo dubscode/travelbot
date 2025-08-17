@@ -127,9 +127,8 @@ export class AppStack extends cdk.Stack {
       internetFacing: true,
     });
 
-    // Create target group and listener
+    // Create target group
     const targetGroup = loadBalancer.createTargetGroup('Main', 80, '/health');
-    loadBalancer.addSimpleHttpListener(targetGroup);
 
     // Attach ECS service to target group
     ecsService.attachToTargetGroup(targetGroup);
