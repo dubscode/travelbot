@@ -8,6 +8,13 @@ on:
       - '.gitignore'
       - '.github/ISSUE_TEMPLATE/**'
       - '.github/PULL_REQUEST_TEMPLATE.md'
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
   workflow_dispatch:
     inputs:
       release_type:
